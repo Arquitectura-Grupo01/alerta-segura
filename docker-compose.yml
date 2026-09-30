@@ -1,80 +1,44 @@
-# Solo para desarrollo local. Render no usa este archivo.
-#   docker compose up --build
-#   docker compose run --rm web pytest
-
-name: alerta-segura
-
+# Solo para desarrollo local. Levanta lo que en la nube vive en servicios separados.
 services:
   db:
-    image: postgres:17-alpine
+    image: postgres:16-alpine
     environment:
+      POSTGRES_DB: alerta
       POSTGRES_USER: alerta
       POSTGRES_PASSWORD: alerta
-      POSTGRES_DB: alerta
-    ports:
-      - "5432:5432"
-    volumes:
-      - datos_postgres:/var/lib/postgresql/data
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U alerta -d alerta"]
+      test: ["CMD-SHELL", "pg_isready -U alerta"]
       interval: 5s
-      timeout: 5s
       retries: 10
 
   redis:
     image: redis:7-alpine
-    command: ["redis-server", "--save", "", "--appendonly", "no"]
-    ports:
-      - "6379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
+    ports: ["6379:6379"]
 
   web:
-    build:
-      context: .
+    build: .
+    command: python manage.py runserver 0.0.0.0:8000
+    env_file: .env
     environment:
-      DJANGO_SETTINGS_MODULE: config.settings.dev
-      DJANGO_SECRET_KEY: clave-local-no-usar-en-produccion
-      DJANGO_DEBUG: "True"
       DATABASE_URL: postgres://alerta:alerta@db:5432/alerta
       REDIS_URL: redis://redis:6379/0
-      APP_ENV: local
-      APP_COMMIT: local
-    # En local interesa la recarga automatica, no gunicorn.
-    entrypoint: ["/bin/bash", "-c"]
-    command: >
-      python manage.py migrate --noinput &&
-      python manage.py runserver 0.0.0.0:8000
-    volumes:
-      - .:/app
-    ports:
-      - "8000:8000"
+    ports: ["8000:8000"]
+    volumes: [".:/app"]
     depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      db: {condition: service_healthy}
+      redis: {condition: service_started}
 
   worker:
-    build:
-      context: .
+    build: .
+    command: celery -A config worker -l info
+    env_file: .env
     environment:
-      MODO: worker
-      DJANGO_SETTINGS_MODULE: config.settings.dev
-      DJANGO_SECRET_KEY: clave-local-no-usar-en-produccion
       DATABASE_URL: postgres://alerta:alerta@db:5432/alerta
       REDIS_URL: redis://redis:6379/0
-      APP_ENV: local
-    volumes:
-      - .:/app
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+    volumes: [".:/app"]
+    depends_on: [db, redis]
 
 volumes:
-  datos_postgres:
+  pgdata:

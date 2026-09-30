@@ -1,43 +1,45 @@
-# Imagen unica para web, worker y beat: lo que cambia es la variable MODO.
-FROM python:3.13-slim
+# syntax=docker/dockerfile:1
+# ---------- Etapa 1: compilar dependencias ----------
+FROM python:3.12-slim AS builder
+
+ENV PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
+WORKDIR /build
+COPY requirements.txt .
+RUN pip wheel --wheel-dir /wheels -r requirements.txt
+
+# ---------- Etapa 2: imagen final, sin herramientas de compilación ----------
+FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
+# Dependencias del sistema para RF-02 y RF-04. Descomentar al implementarlas:
+# cada paquete instalado es superficie que Trivy va a escanear.
+# RUN apt-get update \
+#  && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-spa libzbar0 \
+#  && rm -rf /var/lib/apt/lists/*
+
+# Usuario sin privilegios: si alguien explota la app, no es root en el contenedor.
+RUN groupadd --system --gid 10001 app \
+ && useradd --system --uid 10001 --gid app --no-create-home app
+
 WORKDIR /app
+COPY --from=builder /wheels /wheels
+RUN pip install --no-index --find-links=/wheels /wheels/* && rm -rf /wheels
 
-# curl lo usan el HEALTHCHECK y scripts/smoke.sh.
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl \
-    && rm -rf /var/lib/apt/lists/*
+COPY --chown=app:app . .
 
-# Las dependencias primero: asi la cache de capas sobrevive a cambios de codigo.
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+# collectstatic necesita settings cargables; la clave de build es desechable
+# y solo existe durante este RUN, no queda en la imagen.
+RUN DJANGO_SETTINGS_MODULE=config.settings.prod \
+    DJANGO_SECRET_KEY=build-only-not-a-secret \
+    DATABASE_URL=sqlite:////tmp/build.db \
+    python manage.py collectstatic --noinput \
+ && chmod +x scripts/entrypoint.sh \
+ && chown -R app:app /app/staticfiles
 
-COPY . .
-
-# El commit se hornea en la imagen para que /health/ lo pueda reportar.
-ARG APP_COMMIT=desconocido
-ENV APP_COMMIT=${APP_COMMIT}
-
-# Nada corre como root.
-RUN useradd --system --create-home --shell /usr/sbin/nologin alerta \
-    && chmod +x scripts/*.sh \
-    && mkdir -p staticfiles \
-    && chown -R alerta:alerta /app
-USER alerta
-
-ENV DJANGO_SETTINGS_MODULE=config.settings.prod \
-    PORT=8000
-
+USER app
 EXPOSE 8000
-
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD curl -fsS "http://127.0.0.1:${PORT}/health/" || exit 1
-
-# Se invoca con bash explicito: en Windows el bit de ejecucion no viaja
-# en el repositorio, y asi la imagen arranca igual.
-ENTRYPOINT ["bash", "/app/scripts/entrypoint.sh"]
+CMD ["./scripts/entrypoint.sh"]

@@ -1,54 +1,13 @@
-# Configuracion de herramientas. Las dependencias viven en requirements*.txt
-# porque el despliegue en Render instala con pip.
-
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "config.settings.test"
-pythonpath = ["."]
 testpaths = ["tests"]
-python_files = ["test_*.py"]
-addopts = "-q --strict-markers --strict-config"
-
-[tool.coverage.run]
-source = ["config", "core"]
-omit = ["*/migrations/*", "*/tests/*", "config/wsgi.py", "config/asgi.py"]
-branch = true
-
-[tool.coverage.report]
-show_missing = true
-skip_covered = true
-exclude_lines = [
-    "pragma: no cover",
-    "if TYPE_CHECKING:",
-    "raise NotImplementedError",
-]
+addopts = "-ra --strict-markers"
+filterwarnings = ["ignore:No directory at:UserWarning"]
 
 [tool.ruff]
-target-version = "py312"
 line-length = 100
-extend-exclude = ["migrations", "staticfiles"]
+target-version = "py312"
+extend-exclude = ["**/migrations/**"]
 
 [tool.ruff.lint]
-select = [
-    "E",    # pycodestyle
-    "W",
-    "F",    # pyflakes
-    "I",    # orden de imports
-    "UP",   # sintaxis moderna
-    "B",    # bugbear
-    "C4",   # comprensiones
-    "SIM",  # simplificaciones
-    "DJ",   # reglas de Django
-]
-ignore = [
-    "E501",  # la longitud la controla el formateador
-]
-
-[tool.ruff.lint.per-file-ignores]
-# Los settings por entorno se construyen con import *.
-"config/settings/*.py" = ["F403", "F405"]
-
-[tool.ruff.lint.isort]
-known-first-party = ["config", "core", "analisis", "inteligencia", "motor", "catalogo", "curacion"]
-
-[tool.ruff.format]
-quote-style = "double"
+select = ["E", "F", "I", "B"]

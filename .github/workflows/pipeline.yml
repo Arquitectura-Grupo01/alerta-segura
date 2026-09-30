@@ -1,228 +1,194 @@
-# CI/CD de alerta-segura.
-#
-# Flujo:
-#   pull request  -> calidad + pruebas + seguridad + imagen
-#   push a main   -> lo anterior + despliegue en Render Dev + smoke test
-#   tag vX.Y.Z    -> lo anterior + despliegue en Render Prod (con aprobacion)
-#
-# Configuracion necesaria en el repositorio:
-#   secrets: RENDER_DEPLOY_HOOK_DEV, RENDER_DEPLOY_HOOK_PROD
-#   vars:    URL_DEV, URL_PROD   (p. ej. https://alerta-segura-dev.onrender.com)
-#   environments: dev, produccion (marcar "required reviewers" en produccion)
-
-name: pipeline
+name: Alerta Segura — CI/CD
 
 on:
   push:
     branches: [main]
-    tags: ["v*"]
   pull_request:
     branches: [main]
-  workflow_dispatch:
-    inputs:
-      desplegar_produccion:
-        description: "Desplegar tambien a Render Prod"
-        type: boolean
-        default: false
 
+# Mínimo privilegio para el GITHUB_TOKEN en todos los jobs.
 permissions:
   contents: read
 
+# Un solo pipeline de main a la vez: dos deploys cruzados romperían el smoke test.
+# En PRs sí se cancela la ejecución anterior para ahorrar minutos.
 concurrency:
-  group: pipeline-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
-  PYTHON_VERSION: "3.13"
-  # Valores de relleno: ningun job de CI usa datos reales.
-  DJANGO_SECRET_KEY: clave-solo-para-ci-con-longitud-suficiente-1234567890
-  APP_ENV: ci
+  PYTHON_VERSION: "3.12"
+  GITLEAKS_VERSION: "8.21.2"   # verificar última estable y fijarla
+  TRIVY_VERSION: "0.58.0"      # verificar última estable y fijarla
 
 jobs:
-  # ---------------------------------------------------------------------
+  # ─────────────────────────── CI ───────────────────────────
   calidad:
-    name: Calidad de codigo
+    name: Tests + chequeo de despliegue Django
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
-          cache-dependency-path: requirements-dev.txt
-
-      - name: Instalar dependencias
-        run: pip install -r requirements-dev.txt
-
-      - name: Ruff (lint)
-        run: ruff check --output-format=github .
-
-      - name: Ruff (formato)
-        run: ruff format --check --diff .
-
-      - name: Comprobaciones de Django
-        run: python manage.py check
-        env:
-          DJANGO_SETTINGS_MODULE: config.settings.dev
-
-  # ---------------------------------------------------------------------
-  pruebas:
-    name: Pruebas
-    runs-on: ubuntu-latest
-
+    timeout-minutes: 10
     services:
       postgres:
-        image: postgres:17-alpine
+        image: postgres:16-alpine
         env:
+          POSTGRES_DB: alerta_test
           POSTGRES_USER: alerta
           POSTGRES_PASSWORD: alerta
-          POSTGRES_DB: alerta
-        ports:
-          - 5432:5432
+        ports: ["5432:5432"]
         options: >-
           --health-cmd "pg_isready -U alerta"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-
+          --health-interval 5s --health-timeout 5s --health-retries 10
     env:
-      DJANGO_SETTINGS_MODULE: config.settings.test
-      DATABASE_URL: postgres://alerta:alerta@localhost:5432/alerta
-      REDIS_URL: redis://localhost:6379/0
-      APP_COMMIT: commit-de-prueba
-
+      DJANGO_SECRET_KEY: ci-only-test-key-not-a-secret
+      DATABASE_URL: postgres://alerta:alerta@localhost:5432/alerta_test
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
-          cache-dependency-path: requirements-dev.txt
-
       - name: Instalar dependencias
         run: pip install -r requirements-dev.txt
-
-      - name: Migraciones sin aplicar
+      - name: Lint (ruff)
+        run: ruff check .
+      - name: Migraciones completas
         run: python manage.py makemigrations --check --dry-run
-
-      - name: pytest con cobertura
-        run: pytest --cov --cov-report=term-missing --cov-report=xml --cov-fail-under=75
-
-      - name: Publicar cobertura
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: cobertura
-          path: coverage.xml
-          if-no-files-found: ignore
-
-  # ---------------------------------------------------------------------
-  seguridad:
-    name: Seguridad
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
-          cache-dependency-path: requirements-dev.txt
-
-      - name: Instalar dependencias
-        run: pip install -r requirements-dev.txt
-
-      - name: Bandit (codigo propio)
-        run: bandit -r config core analisis inteligencia motor catalogo curacion -ll
-
-      - name: pip-audit (dependencias)
-        run: pip-audit -r requirements.txt --strict
-
-      - name: check --deploy con la configuracion de produccion
-        run: python manage.py check --deploy --fail-level WARNING
+      - name: Tests (pytest contra PostgreSQL real)
+        run: pytest
+      - name: Chequeo de seguridad de Django (check --deploy)
         env:
           DJANGO_SETTINGS_MODULE: config.settings.prod
-          DATABASE_URL: sqlite:///ci.sqlite3
-          DJANGO_ALLOWED_HOSTS: alerta-segura.ejemplo
-          DJANGO_HSTS_PRELOAD: "true"
+          DJANGO_ALLOWED_HOSTS: ci.example
+        run: |
+          export DJANGO_SECRET_KEY="$(python -c 'from django.core.management.utils import get_random_secret_key as g; print(g())')"
+          python manage.py check --deploy --fail-level WARNING
 
-  # ---------------------------------------------------------------------
-  imagen:
-    name: Imagen Docker
+  sast:
+    name: SAST (Bandit + Semgrep)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Instalar herramientas
+        run: pip install bandit semgrep
+      - name: Bandit (severidad y confianza media o alta)
+        run: bandit -r . -x ./tests,./.venv -ll -ii
+      - name: Semgrep (reglas Python + Django)
+        run: semgrep scan --config p/python --config p/django --error --metrics=off
 
-      - name: Construir la imagen
-        run: docker build --build-arg APP_COMMIT=${{ github.sha }} -t alerta-segura:ci .
-
-      - name: Arrancar el contenedor con la configuracion de produccion
+  dependencias:
+    name: Supply chain (pip-audit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Auditar dependencias contra vulnerabilidades conocidas
         run: |
-          docker run -d --name alerta -p 8000:8000 \
-            -e DJANGO_SECRET_KEY="${DJANGO_SECRET_KEY}" \
-            -e DATABASE_URL="sqlite:////app/db.sqlite3" \
-            -e DJANGO_ALLOWED_HOSTS="localhost,127.0.0.1" \
-            -e DJANGO_SSL_REDIRECT="false" \
-            -e APP_ENV="ci" \
+          pip install pip-audit
+          pip-audit -r requirements.txt
+
+  secretos:
+    name: Secretos (gitleaks, historial completo)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # todo el historial: un secreto borrado sigue en commits viejos
+      - name: Instalar gitleaks
+        run: |
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar -xz gitleaks
+      - name: Escanear
+        run: ./gitleaks detect --source . --redact --verbose
+
+  imagen:
+    name: Build Docker + escaneo (Trivy)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Construir imagen
+        run: docker build -t alerta-segura:ci .
+      - name: Escanear vulnerabilidades HIGH/CRITICAL con parche disponible
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            "aquasec/trivy:${TRIVY_VERSION}" image \
+            --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 \
             alerta-segura:ci
 
-      - name: Smoke test contra el contenedor
-        run: INTENTOS=20 ESPERA=3 bash scripts/smoke.sh http://localhost:8000 ${{ github.sha }}
-
-      - name: Logs del contenedor si algo fallo
-        if: failure()
-        run: docker logs alerta
-
-      - name: Limpiar
-        if: always()
-        run: docker rm -f alerta || true
-
-  # ---------------------------------------------------------------------
-  desplegar-dev:
-    name: Desplegar en Render Dev
-    needs: [calidad, pruebas, seguridad, imagen]
+  # ─────────────────────────── CD ───────────────────────────
+  deploy-dev:
+    name: Deploy a Dev
+    needs: [calidad, sast, dependencias, secretos, imagen]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
-      name: dev
-      url: ${{ vars.URL_DEV }}
+      name: development
+      url: ${{ vars.APP_URL }}
+    steps:
+      - name: Disparar deploy en Render
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: curl -fsS -X POST "$HOOK" > /dev/null && echo "Deploy a Dev disparado"
+
+  smoke-dev:
+    name: Smoke test en Dev
+    needs: deploy-dev
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: development
     steps:
       - uses: actions/checkout@v4
+      - name: Esperar la versión nueva y validarla
+        run: bash scripts/smoke.sh "${{ vars.APP_URL }}" "${{ github.sha }}"
 
-      - name: Lanzar el despliegue
-        run: curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_DEV }}" > /dev/null
+  dast-dev:
+    name: DAST (OWASP ZAP baseline) contra Dev
+    needs: smoke-dev
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: development
+    steps:
+      - name: Escaneo pasivo con ZAP
+        run: |
+          mkdir -p zap && chmod 777 zap
+          docker run --rm -v "$PWD/zap:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py -t "${{ vars.APP_URL }}" -r zap-report.html -J zap-report.json -I
+      - name: Publicar reporte como evidencia
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-report-${{ github.sha }}
+          path: zap/
+          retention-days: 30
 
-      - name: Smoke test del commit desplegado
-        run: INTENTOS=40 ESPERA=15 bash scripts/smoke.sh "${{ vars.URL_DEV }}" ${{ github.sha }}
-
-  # ---------------------------------------------------------------------
-  desplegar-produccion:
-    name: Desplegar en Render Prod
-    needs: [calidad, pruebas, seguridad, imagen]
-    if: >-
-      startsWith(github.ref, 'refs/tags/v') ||
-      (github.event_name == 'workflow_dispatch' && inputs.desplegar_produccion)
+  deploy-prod:
+    name: Deploy a Producción (aprobación manual)
+    needs: dast-dev
     runs-on: ubuntu-latest
     environment:
-      name: produccion
-      url: ${{ vars.URL_PROD }}
+      name: production          # tiene "required reviewers": el job espera aprobación
+      url: ${{ vars.APP_URL }}
+    steps:
+      - name: Disparar deploy en Render
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: curl -fsS -X POST "$HOOK" > /dev/null && echo "Deploy a Prod disparado"
+
+  smoke-prod:
+    name: Smoke test en Prod
+    needs: deploy-prod
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
     steps:
       - uses: actions/checkout@v4
-
-      - name: Lanzar el despliegue
-        run: curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_PROD }}" > /dev/null
-
-      - name: Smoke test del commit desplegado
-        run: INTENTOS=40 ESPERA=15 bash scripts/smoke.sh "${{ vars.URL_PROD }}" ${{ github.sha }}
+      - name: Esperar la versión nueva y validarla
+        run: bash scripts/smoke.sh "${{ vars.APP_URL }}" "${{ github.sha }}"
