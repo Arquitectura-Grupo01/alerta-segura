@@ -181,7 +181,8 @@ El job `secretos` descarga el binario de gitleaks 8.21.2 y ejecuta `gitleaks det
 │   ├── requisitos.md       # qué hace la plataforma, con todos sus valores
 │   ├── seguridad.md        # riesgos, controles y pruebas obligatorias
 │   ├── plan.md             # tareas numeradas en orden de implementación
-│   └── decisiones.md       # decisiones del equipo y pendientes
+│   ├── decisiones.md       # decisiones del equipo y pendientes
+│   └── incidentes.md       # respuesta a incidentes y restauración de la base
 ├── scripts/
 │   ├── entrypoint.sh       # migraciones y Gunicorn al arrancar en Render
 │   ├── init_postgres.sql   # rol de la app sin superusuario (local y CI)
@@ -197,6 +198,7 @@ El job `secretos` descarga el binario de gitleaks 8.21.2 y ejecuta `gitleaks det
 ├── pyproject.toml          # configuración de pytest, cobertura y ruff
 ├── requirements.txt        # dependencias de ejecución
 ├── requirements-dev.txt    # pruebas, lint y escáneres
+├── SECURITY.md             # cómo reportar una vulnerabilidad
 ├── AGENTS.md               # reglas de contribución
 └── CLAUDE.md               # carga AGENTS.md en Claude Code
 ```
