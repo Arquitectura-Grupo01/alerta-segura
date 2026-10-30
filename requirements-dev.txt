@@ -2,7 +2,7 @@
 pytest~=9.1
 pytest-django~=4.14
 pytest-cov~=7.1
-ruff~=0.16
+ruff~=0.17
 bandit~=1.9
-pip-audit~=2.9
+pip-audit~=2.10
 semgrep~=1.183
