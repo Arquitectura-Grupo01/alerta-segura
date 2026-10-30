@@ -3,6 +3,10 @@
 # por eso las migraciones corren aquí, antes de levantar Gunicorn.
 set -e
 
+# manage.py usa dev por defecto (pensado para desarrollo local). En el servidor
+# todo corre con prod salvo que el ambiente indique otra cosa.
+export DJANGO_SETTINGS_MODULE="${DJANGO_SETTINGS_MODULE:-config.settings.prod}"
+
 python manage.py migrate --noinput
 
 exec gunicorn config.wsgi:application \

@@ -1,11 +1,20 @@
-"""Primer control de RNF-04: decidir si una IP es un destino permitido.
+"""Política de salida a internet: decidir si un destino es permitido.
 
-Este módulo NO hace peticiones. Solo valida. La conexión real (RF-01) debe
-conectarse a la IP ya validada y fijar el header Host, para que no exista una
-segunda resolución DNS entre la validación y la conexión (DNS rebinding).
+Este módulo NO hace peticiones. Solo valida. La conexión real del analizador de
+enlaces debe conectarse a la IP ya validada y fijar el header Host, para que no
+exista una segunda resolución DNS entre la validación y la conexión (DNS rebinding).
 """
 import ipaddress
 import socket
+from urllib.parse import urlsplit
+
+# Valores de la política. Son controles de seguridad, no configuración: valen
+# igual en todos los ambientes y por eso no se leen de variables de entorno.
+ESQUEMAS_PERMITIDOS = frozenset({"http", "https"})
+PUERTOS_PERMITIDOS = frozenset({80, 443})
+MAX_REDIRECCIONES = 3
+TIMEOUT_CONEXION_SEGUNDOS = 2
+MAX_BYTES_RESPUESTA = 2 * 1024 * 1024
 
 
 class DestinoBloqueado(Exception):
@@ -43,3 +52,23 @@ def resolver_y_validar(host: str, puerto: int = 443) -> list[str]:
     if bloqueadas:
         raise DestinoBloqueado(f"{host} resuelve a red no permitida")
     return ips
+
+
+def validar_url(url: str) -> list[str]:
+    """Aplica la política completa a una URL: esquema, puerto y destino.
+
+    Devuelve las IPs validadas del host. Cada redirección debe pasar otra vez
+    por aquí antes de seguirla.
+    """
+    partes = urlsplit(url)
+    if partes.scheme not in ESQUEMAS_PERMITIDOS:
+        raise DestinoBloqueado(f"Esquema no permitido: {partes.scheme or 'ninguno'}")
+    if not partes.hostname:
+        raise DestinoBloqueado("La URL no tiene host")
+    try:
+        puerto = partes.port or (443 if partes.scheme == "https" else 80)
+    except ValueError as exc:
+        raise DestinoBloqueado("Puerto inválido") from exc
+    if puerto not in PUERTOS_PERMITIDOS:
+        raise DestinoBloqueado(f"Puerto no permitido: {puerto}")
+    return resolver_y_validar(partes.hostname, puerto)

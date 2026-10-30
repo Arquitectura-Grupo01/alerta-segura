@@ -1,0 +1,26 @@
+# Actualizaciones de versión. Las de seguridad (alertas de Dependabot) se
+# activan en la configuración del repo y no dependen de este archivo.
+# Un PR mensual por ecosistema para no saturar la revisión del equipo. Las
+# versiones mayores (por ejemplo Django 5.2 LTS a 6.x) se deciden en equipo.
+# La imagen base de Docker no se incluye: el Dockerfile aplica los parches del
+# sistema en cada build y Trivy la escanea en cada push.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: monthly
+    groups:
+      python:
+        patterns: ["*"]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]

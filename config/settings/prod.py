@@ -4,9 +4,15 @@ Ambos usan este archivo: lo que cambia entre ellos son las variables de entorno,
 no el código. Así lo que se prueba en Dev es exactamente lo que llega a Prod.
 """
 from .base import *  # noqa: F401,F403
-from .base import env
+from .base import DATABASES, env
 
 DEBUG = False
+
+# La conexión con PostgreSQL (Neon) va cifrada. Se exige aquí y no con una
+# variable para que ningún ambiente desplegado pueda conectarse sin TLS.
+# Si DATABASE_URL ya trae un sslmode más estricto (verify-full), se respeta.
+if DATABASES["default"]["ENGINE"] == "django.db.backends.postgresql":
+    DATABASES["default"].setdefault("OPTIONS", {}).setdefault("sslmode", "require")
 
 # Render termina TLS en su proxy y reenvía por HTTP con este header.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

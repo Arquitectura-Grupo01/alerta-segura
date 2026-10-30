@@ -31,18 +31,20 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_DB: alerta_test
-          POSTGRES_USER: alerta
-          POSTGRES_PASSWORD: alerta
+          POSTGRES_PASSWORD: postgres
         ports: ["5432:5432"]
         options: >-
-          --health-cmd "pg_isready -U alerta"
+          --health-cmd "pg_isready -h localhost -U postgres"
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       DJANGO_SECRET_KEY: ci-only-test-key-not-a-secret
-      DATABASE_URL: postgres://alerta:alerta@localhost:5432/alerta_test
+      DATABASE_URL: postgres://alerta:alerta@localhost:5432/alerta
     steps:
       - uses: actions/checkout@v4
+      - name: Crear el rol de la app sin superusuario (igual que en Neon)
+        run: >-
+          docker exec -i ${{ job.services.postgres.id }}
+          psql -U postgres -v ON_ERROR_STOP=1 < scripts/init_postgres.sql
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
@@ -53,8 +55,8 @@ jobs:
         run: ruff check .
       - name: Migraciones completas
         run: python manage.py makemigrations --check --dry-run
-      - name: Tests (pytest contra PostgreSQL real)
-        run: pytest
+      - name: Tests y cobertura (pytest contra PostgreSQL real, mínimo en pyproject.toml)
+        run: pytest --cov
       - name: Chequeo de seguridad de Django (check --deploy)
         env:
           DJANGO_SETTINGS_MODULE: config.settings.prod
@@ -72,8 +74,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-      - name: Instalar herramientas
-        run: pip install bandit semgrep
+          cache: pip
+      - name: Instalar herramientas (versiones de requirements-dev.txt)
+        run: pip install -r requirements-dev.txt
       - name: Bandit (severidad y confianza media o alta)
         run: bandit -r . -x ./tests,./.venv -ll -ii
       - name: Semgrep (reglas Python + Django)
@@ -88,9 +91,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
       - name: Auditar dependencias contra vulnerabilidades conocidas
         run: |
-          pip install pip-audit
+          pip install -r requirements-dev.txt
           pip-audit -r requirements.txt
 
   secretos:
@@ -156,11 +160,16 @@ jobs:
     timeout-minutes: 15
     environment: development
     steps:
+      - uses: actions/checkout@v4
+      # -I: las advertencias solo avisan. Las reglas FAIL de .github/zap-rules.tsv
+      # detienen el pipeline, y con él el despliegue automático a producción.
       - name: Escaneo pasivo con ZAP
         run: |
           mkdir -p zap && chmod 777 zap
+          cp .github/zap-rules.tsv zap/
           docker run --rm -v "$PWD/zap:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:stable \
-            zap-baseline.py -t "${{ vars.APP_URL }}" -r zap-report.html -J zap-report.json -I
+            zap-baseline.py -t "${{ vars.APP_URL }}" -c zap-rules.tsv \
+            -r zap-report.html -J zap-report.json -I
       - name: Publicar reporte como evidencia
         if: always()
         uses: actions/upload-artifact@v4
@@ -170,11 +179,11 @@ jobs:
           retention-days: 30
 
   deploy-prod:
-    name: Deploy a Producción (aprobación manual)
+    name: Deploy a Producción
     needs: dast-dev
     runs-on: ubuntu-latest
     environment:
-      name: production          # tiene "required reviewers": el job espera aprobación
+      name: production          # sin aprobación manual: solo llega aquí si Dev pasó smoke test y DAST
       url: ${{ vars.APP_URL }}
     steps:
       - name: Disparar deploy en Render
