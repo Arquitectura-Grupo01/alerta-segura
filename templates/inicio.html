@@ -1,0 +1,117 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alerta Segura | Analizador de enlaces</title>
+    <style>
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f3f6fb;
+            color: #172b4d;
+        }
+
+        header {
+            background: #102b50;
+            color: white;
+            padding: 20px 8%;
+            font-size: 23px;
+            font-weight: bold;
+        }
+
+        main {
+            max-width: 850px;
+            margin: 90px auto;
+            padding: 20px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 42px;
+            margin-bottom: 15px;
+        }
+
+        p {
+            color: #53657d;
+            line-height: 1.7;
+        }
+
+        .formulario {
+            display: flex;
+            gap: 12px;
+            background: white;
+            padding: 20px;
+            border-radius: 14px;
+            margin-top: 35px;
+            box-shadow: 0 8px 25px #102b5014;
+        }
+
+        input {
+            flex: 1;
+            min-width: 0;
+            padding: 15px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 15px;
+        }
+
+        button {
+            background: #1765d1;
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            border-radius: 8px;
+            font-size: 15px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #104fa8;
+        }
+
+        .nota {
+            margin-top: 25px;
+            font-size: 13px;
+        }
+
+        @media (max-width: 600px) {
+            main { margin: 45px auto; }
+            h1 { font-size: 30px; }
+            .formulario { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <header>🛡 Alerta Segura</header>
+
+    <main>
+        <h1>Detecta enlaces sospechosos</h1>
+
+        <p>
+            Analiza enlaces antes de abrirlos y conoce
+            las señales de riesgo que podrían indicar
+            un intento de fraude digital.
+        </p>
+
+        <div class="formulario">
+            <input
+                type="url"
+                placeholder="https://ejemplo.com"
+                aria-label="Enlace para analizar"
+            >
+            <button type="button">
+                Analizar enlace
+            </button>
+        </div>
+
+        <p class="nota">
+            Alerta Segura es una herramienta de orientación.
+            Un resultado favorable no garantiza que un enlace sea seguro.
+        </p>
+    </main>
+</body>
+</html>

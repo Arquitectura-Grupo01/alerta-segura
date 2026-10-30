@@ -34,3 +34,9 @@ def ready(request):
         # No se devuelve el detalle del error: evitaría filtrar la cadena de conexión.
         return JsonResponse({"status": "db_unavailable"}, status=503)
     return JsonResponse({"status": "ready"})
+
+from django.shortcuts import render
+
+
+def inicio(request):
+    return render(request, "inicio.html")
