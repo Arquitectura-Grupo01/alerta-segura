@@ -2,14 +2,19 @@
 services:
   db:
     image: postgres:16-alpine
+    # El superusuario "postgres" solo administra. La app entra con el rol "alerta",
+    # sin superusuario, que crea scripts/init_postgres.sql la primera vez que se
+    # inicializa el volumen.
     environment:
-      POSTGRES_DB: alerta
-      POSTGRES_USER: alerta
-      POSTGRES_PASSWORD: alerta
+      POSTGRES_PASSWORD: postgres
     ports: ["5432:5432"]
-    volumes: [pgdata:/var/lib/postgresql/data]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/init_postgres.sql:/docker-entrypoint-initdb.d/init_postgres.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U alerta"]
+      # -h localhost fuerza TCP: durante la inicialización Postgres solo escucha
+      # por socket local y el rol "alerta" todavía no existe.
+      test: ["CMD-SHELL", "pg_isready -h localhost -U alerta -d alerta"]
       interval: 5s
       retries: 10
 

@@ -15,3 +15,4 @@ media/
 tests/
 zap/
 *.sarif
+scripts/init_postgres.sql

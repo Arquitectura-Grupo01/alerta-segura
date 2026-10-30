@@ -1,7 +1,9 @@
 """Configuración común a todos los ambientes de Alerta Segura.
 
 Regla: ningún secreto ni valor que cambie entre ambientes vive en este archivo.
-Todo se lee de variables de entorno (RNF-08: ningún secreto en el repositorio).
+Todo se lee de variables de entorno: ningún secreto va en el repositorio.
+Los controles de seguridad (DEBUG, CSP, política de salida en core/net.py) no
+son configuración: valen igual en todos los ambientes y no se leen del entorno.
 """
 from pathlib import Path
 
@@ -16,7 +18,9 @@ if env_file.exists():
     environ.Env.read_env(env_file)
 
 SECRET_KEY = env("DJANGO_SECRET_KEY")
-DEBUG = env.bool("DJANGO_DEBUG", default=False)
+# Solo dev.py lo activa. No se lee del entorno para que ningún despliegue
+# pueda quedar con DEBUG=True por una variable mal cargada.
+DEBUG = False
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=[])
 APP_ENV = env("APP_ENV", default="local")
 
@@ -32,6 +36,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "core.middleware.ContentSecurityPolicyMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -86,6 +91,15 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Ruta del admin configurable: /admin/ recibe escaneo automatizado constante.
 ADMIN_PATH = env("DJANGO_ADMIN_PATH", default="admin/")
+
+# Content-Security-Policy: solo recursos propios y nada en línea. Si un texto de
+# un ciudadano llegara sin escapar a una página, el navegador no lo ejecutaría.
+# Django 5.2 no la trae; la agrega core.middleware.
+CONTENT_SECURITY_POLICY = (
+    "default-src 'self'; object-src 'none'; base-uri 'self'; "
+    "form-action 'self'; frame-ancestors 'none'"
+)
+CONTENT_SECURITY_POLICY_REPORT_ONLY = False
 
 # --- Celery -----------------------------------------------------------------
 # En Render Free no existen background workers. CELERY_EAGER=True ejecuta las

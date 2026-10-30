@@ -1,1 +1,2 @@
-"""Proximo sprint: catalogo de marcas y sus dominios oficiales (RF-10)."""
+"""Proximo sprint: catalogo de marcas peruanas, sus dominios oficiales y las
+variantes de suplantacion, con versiones y auditoria."""

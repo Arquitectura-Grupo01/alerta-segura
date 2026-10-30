@@ -4,6 +4,15 @@ testpaths = ["tests"]
 addopts = "-ra --strict-markers"
 filterwarnings = ["ignore:No directory at:UserWarning"]
 
+# Cobertura mínima exigida en core, motor e inteligencia. El CI corre `pytest --cov`.
+[tool.coverage.run]
+source = ["core", "motor", "inteligencia"]
+omit = ["*/migrations/*"]
+
+[tool.coverage.report]
+fail_under = 70
+show_missing = true
+
 [tool.ruff]
 line-length = 100
 target-version = "py312"

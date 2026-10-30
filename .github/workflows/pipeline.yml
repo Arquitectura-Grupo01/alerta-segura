@@ -31,18 +31,20 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_DB: alerta_test
-          POSTGRES_USER: alerta
-          POSTGRES_PASSWORD: alerta
+          POSTGRES_PASSWORD: postgres
         ports: ["5432:5432"]
         options: >-
-          --health-cmd "pg_isready -U alerta"
+          --health-cmd "pg_isready -h localhost -U postgres"
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       DJANGO_SECRET_KEY: ci-only-test-key-not-a-secret
-      DATABASE_URL: postgres://alerta:alerta@localhost:5432/alerta_test
+      DATABASE_URL: postgres://alerta:alerta@localhost:5432/alerta
     steps:
       - uses: actions/checkout@v4
+      - name: Crear el rol de la app sin superusuario (igual que en Neon)
+        run: >-
+          docker exec -i ${{ job.services.postgres.id }}
+          psql -U postgres -v ON_ERROR_STOP=1 < scripts/init_postgres.sql
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
@@ -53,8 +55,8 @@ jobs:
         run: ruff check .
       - name: Migraciones completas
         run: python manage.py makemigrations --check --dry-run
-      - name: Tests (pytest contra PostgreSQL real)
-        run: pytest
+      - name: Tests y cobertura (pytest contra PostgreSQL real, mínimo en pyproject.toml)
+        run: pytest --cov
       - name: Chequeo de seguridad de Django (check --deploy)
         env:
           DJANGO_SETTINGS_MODULE: config.settings.prod
@@ -72,8 +74,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-      - name: Instalar herramientas
-        run: pip install bandit semgrep
+          cache: pip
+      - name: Instalar herramientas (versiones de requirements-dev.txt)
+        run: pip install -r requirements-dev.txt
       - name: Bandit (severidad y confianza media o alta)
         run: bandit -r . -x ./tests,./.venv -ll -ii
       - name: Semgrep (reglas Python + Django)
@@ -88,9 +91,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
       - name: Auditar dependencias contra vulnerabilidades conocidas
         run: |
-          pip install pip-audit
+          pip install -r requirements-dev.txt
           pip-audit -r requirements.txt
 
   secretos:
