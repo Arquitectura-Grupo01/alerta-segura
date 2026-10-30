@@ -40,12 +40,12 @@ jobs:
       DJANGO_SECRET_KEY: ci-only-test-key-not-a-secret
       DATABASE_URL: postgres://alerta:alerta@localhost:5432/alerta
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Crear el rol de la app sin superusuario (igual que en Neon)
         run: >-
           docker exec -i ${{ job.services.postgres.id }}
           psql -U postgres -v ON_ERROR_STOP=1 < scripts/init_postgres.sql
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
@@ -70,8 +70,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
@@ -87,8 +87,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
@@ -102,7 +102,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0   # todo el historial: un secreto borrado sigue en commits viejos
       - name: Instalar gitleaks
@@ -117,7 +117,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Construir imagen
         run: docker build -t alerta-segura:ci .
       - name: Escanear vulnerabilidades HIGH/CRITICAL con parche disponible
@@ -149,7 +149,7 @@ jobs:
     timeout-minutes: 15
     environment: development
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Esperar la versión nueva y validarla
         run: bash scripts/smoke.sh "${{ vars.APP_URL }}" "${{ github.sha }}"
 
@@ -160,7 +160,7 @@ jobs:
     timeout-minutes: 15
     environment: development
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # -I: las advertencias solo avisan. Las reglas FAIL de .github/zap-rules.tsv
       # detienen el pipeline, y con él el despliegue automático a producción.
       - name: Escaneo pasivo con ZAP
@@ -172,7 +172,7 @@ jobs:
             -r zap-report.html -J zap-report.json -I
       - name: Publicar reporte como evidencia
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: zap-report-${{ github.sha }}
           path: zap/
@@ -198,6 +198,6 @@ jobs:
     timeout-minutes: 15
     environment: production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Esperar la versión nueva y validarla
         run: bash scripts/smoke.sh "${{ vars.APP_URL }}" "${{ github.sha }}"
