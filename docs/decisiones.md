@@ -22,6 +22,8 @@ Registro de lo que el equipo decidió y de lo que falta decidir. Una decisión d
 | Los documentos del curso no se suben al repo y sus códigos de requisito no se citan | El repo es público y los documentos tienen datos personales. Este directorio resume lo necesario para programar | Equipo, 2026-10-30 |
 | Se aceptan, en versión reducida, las propuestas de las tareas 4, 5, 7, 31, 32, 33, 40 y 57 | Protegen a usuarios reales de una plataforma pública o muestran prácticas profesionales, y cuestan poco frente al MVP | Equipo, 2026-10-30 |
 | Se descartan para el MVP las tareas 41 (fusionada con la 5), 45, 48, 49, 50 y 60 | Cambian el motor, necesitan tareas programadas o moderación, o tienen costo. Quedan como ideas en la tarea 61 | Equipo, 2026-10-30 |
+| De la tarea 3 se aceptan el 2FA obligatorio en GitHub, el MFA en Render y Neon y el *private vulnerability reporting*. Se descarta `CODEOWNERS` | Con despliegue automático, una cuenta tomada controla producción. Con tres integrantes, exigir un responsable por ruta frena más de lo que protege, y todo PR ya necesita la aprobación de otro integrante | Equipo, 2026-10-30 |
+| Los tres integrantes son administradores del repo | Todos configuran GitHub. A cambio, el 2FA es obligatorio en las tres cuentas | Equipo, 2026-10-30 |
 
 ## Pendientes
 

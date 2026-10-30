@@ -34,12 +34,12 @@ Los números no cambian. Una tarea nueva toma el siguiente número libre y se ub
 
 | Campo | Detalle |
 |---|---|
-| Origen | Recomendación del informe (secret scanning, push protection y CodeQL); lo demás es propuesta nueva. Confirmar con el equipo antes de programar la parte nueva. |
-| Va en | Configuración de GitHub, Render y Neon, y `.github/CODEOWNERS`. |
-| Debe tener | Secret scanning, push protection y CodeQL activos; 2FA obligatorio para los miembros de la organización de GitHub; MFA en las cuentas de Render y Neon; *private vulnerability reporting* activo; un archivo `.github/CODEOWNERS` que pida la revisión de un responsable en `.github/`, `config/settings/`, `core/net.py`, `core/middleware.py` y `scripts/`. |
-| Cómo | Settings, Code security, para el escaneo y CodeQL con la configuración por defecto, sin workflow propio. Settings de la organización para el 2FA. Con `CODEOWNERS` integrado, activar *Require review from Code Owners* en el ruleset. |
-| Cuidado | Con despliegue automático, quien controla la cuenta de GitHub, Render o Neon de un integrante controla producción: el 2FA pasa a ser un control crítico. Pocas personas con rol de administrador. Con tres integrantes, cada ruta de `CODEOWNERS` lleva a dos personas para no bloquear al equipo. |
-| Terminada cuando | Las opciones figuran activas, CodeQL completó su primer análisis y un PR que toca `core/net.py` pide la revisión del responsable. |
+| Origen | Recomendación del informe (secret scanning, push protection y CodeQL). El 2FA, el MFA y el *private vulnerability reporting* son propuesta nueva, aceptada por el equipo el 2026-10-30 sin `CODEOWNERS` (ver `docs/decisiones.md`). |
+| Va en | Configuración de GitHub, Render y Neon. |
+| Debe tener | Secret scanning, push protection y CodeQL activos; 2FA obligatorio para los miembros de la organización de GitHub; MFA en las cuentas de Render y Neon; *private vulnerability reporting* activo. |
+| Cómo | Settings, Code security, para el escaneo y CodeQL con la configuración por defecto, sin workflow propio. Settings de la organización para el 2FA, recién cuando las tres cuentas lo tengan, porque GitHub saca de la organización a quien no lo tenga. |
+| Cuidado | Con despliegue automático, quien controla la cuenta de GitHub, Render o Neon de un integrante controla producción: el 2FA pasa a ser un control crítico. Los tres integrantes son administradores del repo, así que cualquiera de las tres cuentas puede apagar el ruleset, push protection o CodeQL. Neon no da códigos de recuperación, así que conviene registrar también una passkey. |
+| Terminada cuando | Las opciones figuran activas y CodeQL completó su primer análisis. |
 
 ### 4. Endurecer la cadena de suministro del CI
 
