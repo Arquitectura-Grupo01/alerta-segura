@@ -70,8 +70,8 @@ Estas amenazas no estaban en la matriz del informe. Sus controles están en el p
 - Una respuesta comprimida de 2 MB puede ocupar gigas al descomprimirse, y una variable `HTTP_PROXY` puede desviar el tráfico saliente (tarea 11).
 - Un atacante con IPv6 tiene millones de direcciones, y en el Perú el CGNAT de las redes móviles hace que muchas personas compartan una IP (tarea 12).
 - Un estafador puede usar la plataforma para probar qué dominios detecta antes de lanzar su campaña (tarea 37).
-- La propia plataforma será suplantada por sitios falsos que imitan a Alerta Segura (tareas 14 y 60).
+- La propia plataforma será suplantada por sitios falsos que imitan a Alerta Segura (tareas 14 y 32).
 - Con despliegue automático, quien tome la cuenta de GitHub, Render o Neon de un integrante controla producción (tarea 3).
 - Una etiqueta de una acción de GitHub puede moverse a código malicioso, y una imagen sin digest cambia sin aviso (tarea 4).
-- En un repo público, cualquiera descarga los artifacts del pipeline, incluidos los reportes de ZAP y cualquier respaldo que se suba ahí (tareas 59 y 41).
+- En un repo público, cualquiera descarga los artifacts del pipeline, incluidos los reportes de ZAP y cualquier respaldo que se suba ahí (tareas 59 y 5).
 - Las claves de API que van en la URL de una consulta pueden terminar en los logs (tarea 17).

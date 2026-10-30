@@ -20,12 +20,13 @@ Registro de lo que el equipo decidió y de lo que falta decidir. Una decisión d
 | Los agentes pueden hacer commits en su rama; push y PR solo cuando la persona lo pide | La persona revisa antes de publicar | Equipo, 2026-10-30 |
 | Colores del semáforo ajustados para cumplir WCAG AA | Los del prototipo no llegaban al contraste mínimo | Equipo, 2026-10-30 |
 | Los documentos del curso no se suben al repo y sus códigos de requisito no se citan | El repo es público y los documentos tienen datos personales. Este directorio resume lo necesario para programar | Equipo, 2026-10-30 |
+| Se aceptan, en versión reducida, las propuestas de las tareas 4, 5, 7, 31, 32, 33, 40 y 57 | Protegen a usuarios reales de una plataforma pública o muestran prácticas profesionales, y cuestan poco frente al MVP | Equipo, 2026-10-30 |
+| Se descartan para el MVP las tareas 41 (fusionada con la 5), 45, 48, 49, 50 y 60 | Cambian el motor, necesitan tareas programadas o moderación, o tienen costo. Quedan como ideas en la tarea 61 | Equipo, 2026-10-30 |
 
 ## Pendientes
 
 | Decisión | Tarea | Recomendación |
 |---|---|---|
-| Activar las propuestas nuevas del plan | Todas las marcadas como propuesta nueva | Revisarlas en una reunión y registrar aquí cuáles se hacen |
 | Umbral de AbuseIPDB para contar una detección | 20 | Empezar alto y ajustarlo con el set de regresión |
 | Edad de los dominios `.pe` sin RDAP | 16 | Verificar si el registro de `.pe` ofrece RDAP; si no, la edad queda no disponible |
 | Clave de PhishTank | 18 | Pedirla; si no llega, omitir la fuente |
@@ -33,7 +34,5 @@ Registro de lo que el equipo decidió y de lo que falta decidir. Una decisión d
 | Límite por IP frente al CGNAT de las redes móviles | 12 | Medir los 429 en Prod antes de cambiarlo |
 | CodeQL como check obligatorio | 3 | Sí, cuando su primer análisis no dé falsos positivos |
 | Plazos de retención de datos | 40 | Análisis y reportes, 12 meses; auditoría, un año como mínimo |
-| Dominio propio | 60 | Sí, antes de difundir la plataforma |
-| Imagen del CI desplegada en Render por digest | 4 | Revisar primero cómo construye Render hoy |
 | Habilitar el modelo de lenguaje | 51 | Solo si el set de regresión muestra que mejora la detección |
 | Diseño de la consulta de números telefónicos | 54 | Decidir después del registro estadístico |
