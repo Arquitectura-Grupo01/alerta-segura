@@ -22,7 +22,8 @@ RUN apt-get update \
     && apt-get upgrade -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
-# Dependencias del sistema para RF-02 y RF-04. Descomentar al implementarlas:
+# Dependencias del sistema para el OCR de capturas (Tesseract) y la lectura de
+# códigos QR (zbar). Descomentar al implementarlas:
 # cada paquete instalado es superficie que Trivy va a escanear.
 # RUN apt-get update \
 #  && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-spa libzbar0 \
