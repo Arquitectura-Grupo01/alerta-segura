@@ -20,4 +20,4 @@ def test_login_del_admin_no_usa_scripts_en_linea(client):
     # La CSP bloquea scripts en línea. Si una versión nueva de Django los agrega
     # al admin, la consola dejaría de funcionar en producción.
     html = client.get(reverse("admin:login")).content.decode()
-    assert not re.search(r"<script(?![^>]*\bsrc=)[^>]*>", html)
+    assert not re.search(r"<script(?![^>]*\bsrc=)[^>]*>", html, re.IGNORECASE)
