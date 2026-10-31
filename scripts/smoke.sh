@@ -26,7 +26,8 @@ for i in $(seq 1 "$INTENTOS"); do
     echo "Base de datos accesible."
 
     CABECERAS="$(curl -sSI --max-time 15 "$URL/health/")"
-    for h in "strict-transport-security" "x-content-type-options" "x-frame-options"; do
+    for h in "strict-transport-security" "x-content-type-options" "x-frame-options" \
+             "content-security-policy"; do
       if ! grep -qi "^$h:" <<<"$CABECERAS"; then
         echo "FALLA: falta la cabecera de seguridad '$h'."
         exit 1

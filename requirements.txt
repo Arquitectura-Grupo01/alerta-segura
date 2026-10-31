@@ -1,8 +1,8 @@
 # Dependencias de ejecución. Rangos compatibles (~=) para recibir parches de seguridad
 # sin saltar de versión mayor. Revisar con pip-audit en cada push.
-Django~=5.2.0
+Django~=5.2.18
 django-environ~=0.14
-gunicorn~=23.0
+gunicorn~=26.2
 whitenoise~=6.12
 psycopg[binary]~=3.3
 celery[redis]~=5.6

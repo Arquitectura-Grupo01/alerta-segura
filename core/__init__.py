@@ -1,2 +1,2 @@
 """Salud del sistema (/health/, /ready/) y utilidades transversales
-de seguridad como la validacion de destinos de red (RNF-04)."""
+de seguridad: politica de salida a internet (net.py) y CSP (middleware.py)."""

@@ -1,2 +1,2 @@
-"""Proximo sprint: consola de curacion, reportes y campanas
-(RF-06, RF-08, RF-09)."""
+"""Proximo sprint: cola de reportes de desacuerdo, agrupacion en campanas e
+invalidacion de resultados. Un reporte nunca cambia un veredicto por si solo."""
