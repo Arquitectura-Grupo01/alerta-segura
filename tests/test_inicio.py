@@ -48,10 +48,10 @@ def test_inicio_nunca_promete_seguridad_total(client):
 def test_inicio_no_usa_scripts_ni_estilos_en_linea(client):
     # La CSP bloquea todo lo que va en línea; si se cuela algo, la página se rompe en producción.
     html = _html(client)
-    assert not re.search(r"<script(?![^>]*\bsrc=)[^>]*>", html, re.IGNORECASE)
-    assert not re.search(r"<style", html, re.IGNORECASE)
-    assert not re.search(r"\sstyle=", html, re.IGNORECASE)
-    assert not re.search(r"\son[a-z]+=", html, re.IGNORECASE)
+    assert not re.search(r"<script(?![^>]*\bsrc=)[^>]*>", html, flags=re.IGNORECASE)
+    assert not re.search(r"<style", html, flags=re.IGNORECASE)
+    assert not re.search(r"\sstyle=", html, flags=re.IGNORECASE)
+    assert not re.search(r"\son[a-z]+=", html, flags=re.IGNORECASE)
 
 
 def test_inicio_no_carga_recursos_de_otros_dominios(client):
