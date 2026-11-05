@@ -82,6 +82,9 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+# CSS, JS, fuentes e imágenes propios de la interfaz. collectstatic los copia a
+# STATIC_ROOT y Whitenoise los sirve con el nombre versionado por su hash.
+STATICFILES_DIRS = [BASE_DIR / "static"]
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
