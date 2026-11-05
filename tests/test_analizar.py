@@ -64,7 +64,8 @@ def test_sin_fuentes_externas_nunca_da_seguro(client):
 
 def test_el_destino_nunca_es_un_enlace(client):
     html = _analizar(client, "https://bcp.com.pe@sitio-falso.com/login").content.decode()
-    assert "sitio-falso.com" in html
+    # Se compara el texto exacto: CodeQL marca "dominio" in texto como validación incompleta.
+    assert re.search(r">sitio-falso\.com</p>", html)
     assert not re.search(r'<a[^>]+href="[^"]*sitio-falso', html)
     assert not re.search(r'href="https?://', html)
 

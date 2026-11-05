@@ -120,7 +120,11 @@ def test_si_el_puntaje_decide_las_senales_van_primero():
 def test_el_motivo_muestra_el_dominio_real():
     veredicto = calcular(Senales(heuristicas=("usuario_en_url",)))
     motivos = explicar(veredicto, "sitio-falso.com").motivos
-    assert any("sitio-falso.com" in motivo for motivo in motivos)
+    esperado = (
+        "El enlace pone un nombre al inicio para confundir, pero en realidad abre "
+        "sitio-falso.com."
+    )
+    assert esperado in motivos
 
 
 def test_la_edad_se_dice_en_dias_y_una_sola_vez():
