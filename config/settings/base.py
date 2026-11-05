@@ -5,9 +5,11 @@ Todo se lee de variables de entorno: ningún secreto va en el repositorio.
 Los controles de seguridad (DEBUG, CSP, política de salida en core/net.py) no
 son configuración: valen igual en todos los ambientes y no se leen del entorno.
 """
+import os
 from pathlib import Path
 
 import environ
+from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -17,7 +19,12 @@ env_file = BASE_DIR / ".env"
 if env_file.exists():
     environ.Env.read_env(env_file)
 
-SECRET_KEY = env("DJANGO_SECRET_KEY")
+# django-environ toma un valor que empieza con "$" como el nombre de otra variable,
+# y una clave aleatoria puede empezar así. La clave se lee tal cual del entorno.
+try:
+    SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
+except KeyError:
+    raise ImproperlyConfigured("Falta la variable de entorno DJANGO_SECRET_KEY") from None
 # Solo dev.py lo activa. No se lee del entorno para que ningún despliegue
 # pueda quedar con DEBUG=True por una variable mal cargada.
 DEBUG = False
