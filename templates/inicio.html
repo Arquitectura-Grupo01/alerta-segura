@@ -14,22 +14,20 @@
       <p class="hero-intro">Pega el enlace que te llegó por WhatsApp, SMS o correo. Lo revisamos sin abrirlo en tu celular y te explicamos con palabras simples qué tan riesgoso es.</p>
     </div>
 
-    {# El formulario todavía no envía: falta el orquestador del análisis (tarea 25). #}
-    {# Con data-prototipo, inicio.js muestra el esqueleto del resultado sin enviar. #}
     {# El token va al final: la regla django-no-csrf-token de Semgrep no lo ve a más de 10 líneas de </form>. #}
-    <form class="analisis" id="form-analisis" method="post" novalidate data-prototipo>
+    <form class="analisis" id="form-analisis" method="post" action="{% url 'analizar' %}" novalidate>
       <div class="analisis-cabeza">
         <label class="etiqueta" for="enlace">Pega el enlace que recibiste</label>
         <span class="analisis-meta">Gratis y sin registro</span>
       </div>
       <div class="barra">
         <div class="campo">
-          <input id="enlace" name="enlace" type="text" inputmode="url" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="go" maxlength="2048" placeholder="ejemplo.com/oferta" aria-describedby="enlace-mensaje enlace-aviso">
+          <input id="enlace" name="enlace" type="text" inputmode="url" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="go" maxlength="2048" placeholder="ejemplo.com/oferta" aria-describedby="enlace-mensaje enlace-aviso"{% if enlace %} value="{{ enlace }}"{% endif %}{% if error %} aria-invalid="true"{% endif %}>
           <button class="boton-pegar" type="button" data-pegar hidden><svg aria-hidden="true" focusable="false" width="18" height="18"><use href="#i-pegar"/></svg>Pegar</button>
         </div>
         <button class="boton-analizar" type="submit" data-analizar><span data-texto>Analizar</span><svg aria-hidden="true" focusable="false" width="18" height="18"><use href="#i-flecha"/></svg></button>
       </div>
-      <p class="mensaje" id="enlace-mensaje" aria-live="polite"></p>
+      <p class="mensaje" id="enlace-mensaje" aria-live="polite"{% if error %} data-tipo="error"{% endif %}>{{ error }}</p>
       <p class="aviso" id="enlace-aviso"><strong>Nunca escribas aquí contraseñas, claves ni códigos.</strong> Para revisar un enlace no los necesitamos.</p>
       {% csrf_token %}
     </form>
@@ -144,25 +142,7 @@
     </div>
   </section>
 
-  {# La guía todavía no existe (tarea 28). #}
-  <section class="seccion seccion-ya" id="ya-hice-clic" aria-labelledby="ya-titulo">
-    <div class="contenedor">
-      <div class="ya">
-        <div class="ya-texto">
-          <h2 id="ya-titulo">¿Ya hiciste clic, diste tus datos o pagaste? <span class="tenue">Todavía puedes hacer algo.</span></h2>
-          <p>Elige lo que pasó y te damos pasos simples para cada caso. No te pediremos ningún dato.</p>
-          <p class="consejo"><b>Llama a tu banco con el número de tu tarjeta o de su app.</b> Nunca uses el número que vino en el mensaje.</p>
-        </div>
-        <ul class="situaciones">
-          <li><a href="/guia/#hice-clic"><span class="situacion"><span class="situacion-titulo">Hice clic en el enlace</span><span class="situacion-pista">Qué revisar si solo lo abriste</span></span><svg aria-hidden="true" focusable="false" width="22" height="22"><use href="#i-flecha"/></svg></a></li>
-          <li><a href="/guia/#di-mis-datos"><span class="situacion"><span class="situacion-titulo">Escribí mis datos o mis claves</span><span class="situacion-pista">Cambia tus claves y avisa a tu banco</span></span><svg aria-hidden="true" focusable="false" width="22" height="22"><use href="#i-flecha"/></svg></a></li>
-          <li><a href="/guia/#pague"><span class="situacion"><span class="situacion-titulo">Pagué o transferí, también por Yape o Plin</span><span class="situacion-pista">Llama a tu banco cuanto antes</span></span><svg aria-hidden="true" focusable="false" width="22" height="22"><use href="#i-flecha"/></svg></a></li>
-          <li><a href="/guia/#instale-una-app"><span class="situacion"><span class="situacion-titulo">Instalé una app que me enviaron</span><span class="situacion-pista">Desinstálala y revisa tus cuentas</span></span><svg aria-hidden="true" focusable="false" width="22" height="22"><use href="#i-flecha"/></svg></a></li>
-          <li><a href="/guia/#codigo-whatsapp"><span class="situacion"><span class="situacion-titulo">Compartí el código de verificación de WhatsApp</span><span class="situacion-pista">Recupera tu cuenta y activa la verificación en dos pasos</span></span><svg aria-hidden="true" focusable="false" width="22" height="22"><use href="#i-flecha"/></svg></a></li>
-        </ul>
-      </div>
-    </div>
-  </section>
+  {% include "parciales/ya_hice_clic.html" %}
 
   <section class="seccion banda" id="que-revisamos" aria-labelledby="revisamos-titulo">
     <div class="contenedor">

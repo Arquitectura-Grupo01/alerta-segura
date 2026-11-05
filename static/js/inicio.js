@@ -164,9 +164,6 @@
     campo.value = enlace;
     limpiarAviso();
     mostrarCarga(dominioDe(enlace));
-
-    // En el prototipo no hay servidor: el esqueleto queda a la vista.
-    if (form.hasAttribute("data-prototipo")) evento.preventDefault();
   });
 
   // Al volver con el botón Atrás, el navegador puede restaurar la página en estado de carga.
@@ -174,7 +171,6 @@
     if (evento.persisted) ocultarCarga();
   });
 
-  document.addEventListener("keydown", function (evento) {
-    if (evento.key === "Escape" && form.hasAttribute("data-prototipo")) ocultarCarga();
-  });
+  // Si el servidor rechazó el enlace, el foco vuelve al campo para corregirlo.
+  if (campo.getAttribute("aria-invalid") === "true") campo.focus();
 })();

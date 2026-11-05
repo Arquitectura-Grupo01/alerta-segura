@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block titulo %}{{ nivel.texto }}. Resultado del análisis en Alerta Segura{% endblock %}
+{% block cabeza %}<meta name="robots" content="noindex">{% endblock %}
+
+{% block contenido %}
+{# Orden fijo de la tarea 27: nivel, motivos, qué hacer y detalle técnico colapsado. #}
+{# El dominio se muestra como texto: nunca es un enlace clicable. #}
+<section class="pagina-resultado" aria-labelledby="resultado-nivel">
+  <div class="contenedor">
+    <p class="resultado-contexto">Resultado del análisis</p>
+    <article class="resultado resultado-principal nivel-{{ nivel.clave }}">
+      <div class="resultado-nivel">
+        <svg aria-hidden="true" focusable="false" width="36" height="36"><use href="#i-{{ nivel.clave }}"/></svg>
+        <h1 class="resultado-palabra" id="resultado-nivel">{{ nivel.texto }}</h1>
+        <p class="resultado-dominio"><span class="oculto">Web que abre el enlace: </span>{{ dominio }}</p>
+      </div>
+      <div class="resultado-cuerpo">
+        {% if explicacion.aclaracion %}<p class="resultado-aclaracion">{{ explicacion.aclaracion }}</p>{% endif %}
+        <h2 class="resultado-titulo">Por qué</h2>
+        <ul class="motivos">
+          {% for motivo in explicacion.motivos %}<li>{{ motivo }}</li>
+          {% endfor %}
+        </ul>
+        <h2 class="resultado-titulo">Qué hacer</h2>
+        <ol class="acciones">
+          {% for accion in explicacion.acciones %}<li>{{ accion }}</li>
+          {% endfor %}
+        </ol>
+        <details class="detalle">
+          <summary>Ver detalle técnico</summary>
+          <dl class="detalle-lista">
+            <div><dt>Web que abre el enlace<span class="detalle-nota">El nombre real, aunque el enlace muestre otro.</span></dt><dd class="mono">{{ dominio }}</dd></div>
+            {% for termino, valor, nota in explicacion.detalle %}
+            <div><dt>{{ termino }}<span class="detalle-nota">{{ nota }}</span></dt><dd>{{ valor }}</dd></div>
+            {% endfor %}
+          </dl>
+          <div class="detalle-senales">
+            <h3 class="detalle-subtitulo">Señales en la dirección</h3>
+            {% if explicacion.senales %}
+            <ul>
+              {% for nombre, nota in explicacion.senales %}<li><b>{{ nombre }}.</b> {{ nota }}</li>
+              {% endfor %}
+            </ul>
+            {% else %}
+            <p>No encontramos ninguna.</p>
+            {% endif %}
+          </div>
+        </details>
+      </div>
+    </article>
+    <p class="resultado-otro">
+      <a class="boton-analizar" href="{% url 'inicio' %}">Analizar otro enlace<svg aria-hidden="true" focusable="false" width="18" height="18"><use href="#i-flecha"/></svg></a>
+    </p>
+  </div>
+</section>
+
+{% if mostrar_guia %}{% include "parciales/ya_hice_clic.html" %}{% endif %}
+{% endblock %}
