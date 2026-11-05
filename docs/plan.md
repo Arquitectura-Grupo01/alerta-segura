@@ -2,9 +2,9 @@
 
 Tareas en el orden en que se programan. Quien te encarga el trabajo te dice el número de la tarea. Léela completa junto con las secciones de [requisitos.md](requisitos.md) y [seguridad.md](seguridad.md) que toca, y sigue [AGENTS.md](../AGENTS.md).
 
-Cada tarea dice su origen. Las del informe del Hito 1 y los pedidos del profesor son compromisos del curso. Las propuestas nuevas no están en el informe y necesitan el visto bueno del equipo antes de programarse; si no consta en [decisiones.md](decisiones.md), pregunta. Lo mismo vale para lo que una tarea marca como «requiere acuerdo del equipo».
+Cada tarea dice su origen. Las del informe del Hito 1 y los pedidos del profesor son compromisos del curso. Las propuestas aceptadas no estaban en el informe y el equipo las aprobó; constan en [decisiones.md](decisiones.md). Una propuesta que no figure ahí como aceptada, o lo que una tarea marca como «requiere acuerdo del equipo», necesita el visto bueno del equipo: pregunta antes de programarlo.
 
-Los números no cambian. Una tarea nueva toma el siguiente número libre y se ubica en su etapa; una tarea descartada se marca como descartada y no se borra. Los encargados se asignan fuera del repo, en el Excel del equipo.
+Los números no cambian. Una tarea nueva toma el siguiente número libre y se ubica en su etapa; una tarea descartada conserva su número, dice por qué se descartó y no se programa. Los encargados y el estado de cada tarea se llevan fuera del repo, en el Excel del equipo.
 
 ## Antes de programar
 
@@ -34,34 +34,34 @@ Los números no cambian. Una tarea nueva toma el siguiente número libre y se ub
 
 | Campo | Detalle |
 |---|---|
-| Origen | Recomendación del informe (secret scanning, push protection y CodeQL); lo demás es propuesta nueva. Confirmar con el equipo antes de programar la parte nueva. |
-| Va en | Configuración de GitHub, Render y Neon, y `.github/CODEOWNERS`. |
-| Debe tener | Secret scanning, push protection y CodeQL activos; 2FA obligatorio para los miembros de la organización de GitHub; MFA en las cuentas de Render y Neon; *private vulnerability reporting* activo; un archivo `.github/CODEOWNERS` que pida la revisión de un responsable en `.github/`, `config/settings/`, `core/net.py`, `core/middleware.py` y `scripts/`. |
-| Cómo | Settings, Code security, para el escaneo y CodeQL con la configuración por defecto, sin workflow propio. Settings de la organización para el 2FA. Con `CODEOWNERS` integrado, activar *Require review from Code Owners* en el ruleset. |
-| Cuidado | Con despliegue automático, quien controla la cuenta de GitHub, Render o Neon de un integrante controla producción: el 2FA pasa a ser un control crítico. Pocas personas con rol de administrador. Con tres integrantes, cada ruta de `CODEOWNERS` lleva a dos personas para no bloquear al equipo. |
-| Terminada cuando | Las opciones figuran activas, CodeQL completó su primer análisis y un PR que toca `core/net.py` pide la revisión del responsable. |
+| Origen | Recomendación del informe (secret scanning, push protection y CodeQL). El 2FA, el MFA y el *private vulnerability reporting* son propuesta nueva, aceptada por el equipo el 2026-10-30 sin `CODEOWNERS` (ver `docs/decisiones.md`). |
+| Va en | Configuración de GitHub, Render y Neon. |
+| Debe tener | Secret scanning, push protection y CodeQL activos; 2FA obligatorio para los miembros de la organización de GitHub; MFA en las cuentas de Render y Neon; *private vulnerability reporting* activo. |
+| Cómo | Settings, Code security, para el escaneo y CodeQL con la configuración por defecto, sin workflow propio. Settings de la organización para el 2FA, recién cuando las tres cuentas lo tengan, porque GitHub saca de la organización a quien no lo tenga. |
+| Cuidado | Con despliegue automático, quien controla la cuenta de GitHub, Render o Neon de un integrante controla producción: el 2FA pasa a ser un control crítico. Los tres integrantes son administradores del repo, así que cualquiera de las tres cuentas puede apagar el ruleset, push protection o CodeQL. Neon no da códigos de recuperación, así que conviene registrar también una passkey. |
+| Terminada cuando | Las opciones figuran activas y CodeQL completó su primer análisis. |
 
 ### 4. Endurecer la cadena de suministro del CI
 
 | Campo | Detalle |
 |---|---|
-| Origen | Propuesta nueva de la revisión de seguridad; no está en el informe. Confirmar con el equipo antes de programarla. |
-| Va en | `.github/workflows/pipeline.yml`, `Dockerfile` y `requirements*.txt`. |
-| Debe tener | Acciones de GitHub fijadas por SHA de commit y no por etiqueta; imágenes de Python y de ZAP fijadas por digest (hoy ZAP usa `zaproxy:stable`, que cambia sin aviso); dependencias instaladas con `--require-hashes` desde un archivo generado con pip-tools; un SBOM de la imagen generado con Trivy y guardado como artifact. |
-| Cómo | Dependabot ya actualiza acciones y dependencias, y sabe actualizar SHAs, así que fijar no congela las versiones. Si se fija el digest de la imagen base, habilitar Dependabot para Docker, hoy excluido en `.github/dependabot.yml`. |
-| Cuidado | En marzo de 2025 la acción tj-actions/changed-files fue comprometida y sus etiquetas pasaron a apuntar a código malicioso: una etiqueta se puede mover, un SHA no. Revisar cómo construye Render: si construye la imagen desde el repo, la imagen que escaneó Trivy no es la que corre; evaluar publicar la imagen del CI en GHCR y que Render despliegue esa imagen por digest. |
-| Terminada cuando | Ningún `uses:` del workflow usa una etiqueta, la imagen se construye con `--require-hashes` y el SBOM aparece en cada ejecución. |
+| Origen | Propuesta de la revisión de seguridad, aceptada por el equipo el 2026-10-30 (ver `docs/decisiones.md`). No estaba en el informe. |
+| Va en | `.github/workflows/pipeline.yml`. |
+| Debe tener | Acciones de GitHub fijadas por SHA de commit y no por etiqueta; la imagen de ZAP fijada por digest (hoy usa `zaproxy:stable`, que cambia sin aviso); un SBOM de la imagen generado con Trivy y guardado como artifact. |
+| Cómo | Reemplazar cada `uses: accion@vN` por su SHA con la versión en un comentario. Dependabot ya actualiza las acciones y sabe actualizar SHAs, así que fijar no congela las versiones. El SBOM sale de Trivy en formato CycloneDX dentro del job `imagen`. |
+| Cuidado | En marzo de 2025 la acción tj-actions/changed-files fue comprometida y sus etiquetas pasaron a apuntar a código malicioso: una etiqueta se puede mover, un SHA no. Instalar con `--require-hashes` y desplegar en Render la imagen del CI por digest quedaron para después del MVP (tarea 61). |
+| Terminada cuando | Ningún `uses:` del workflow usa una etiqueta, ZAP corre por digest y el SBOM aparece en cada ejecución. |
 
-### 5. Respuesta a incidentes y reporte de vulnerabilidades
+### 5. Respuesta a incidentes, respaldo y reporte de vulnerabilidades
 
 | Campo | Detalle |
 |---|---|
-| Origen | Propuesta nueva de la revisión de seguridad; no está en el informe. Confirmar con el equipo antes de programarla. |
-| Va en | `SECURITY.md` en la raíz y `docs/incidentes.md`. La ruta `/.well-known/security.txt` llega con las páginas legales. |
-| Debe tener | `SECURITY.md` con cómo reportar una vulnerabilidad (por *private vulnerability reporting* de GitHub). Procedimientos cortos para cuatro casos: secreto filtrado (revocar, rotar, revisar historial y logs), «Seguro» equivocado sobre una estafa real (invalidar, curar, revisar reglas y avisar), acceso indebido a la consola (cerrar sesiones, rotar `DJANGO_SECRET_KEY`, revisar la auditoría) y base comprometida (rotar credenciales en Neon y restaurar). |
-| Cómo | Textos cortos en `docs/incidentes.md`, con responsables por rol y un correo del equipo creado para esto. |
-| Cuidado | El repo es público: ningún correo, teléfono ni nombre de integrantes. Revisar en el reglamento vigente de la Ley N.° 29733 si hay que notificar incidentes a la Autoridad Nacional de Protección de Datos Personales y en qué plazo. |
-| Terminada cuando | Existen `SECURITY.md` y `docs/incidentes.md`, y el equipo hizo un simulacro de secreto filtrado con una clave de prueba. |
+| Origen | Propuesta de la revisión de seguridad, aceptada por el equipo el 2026-10-30 (ver `docs/decisiones.md`). No estaba en el informe. |
+| Va en | `SECURITY.md` en la raíz, `docs/incidentes.md` y Neon. La ruta `/.well-known/security.txt` llega con las páginas legales. |
+| Debe tener | `SECURITY.md` con cómo reportar una vulnerabilidad (por *private vulnerability reporting* de GitHub). Procedimientos cortos para cuatro casos: secreto filtrado (revocar, rotar, revisar historial y logs), «Seguro» equivocado sobre una estafa real (invalidar, curar, revisar reglas y avisar), acceso indebido a la consola (cerrar sesiones, rotar `DJANGO_SECRET_KEY`, revisar la auditoría) y base comprometida (rotar credenciales en Neon y restaurar). Una restauración probada de la base de Prod. |
+| Cómo | Textos cortos en `docs/incidentes.md`, con responsables por rol y un correo del equipo creado para esto. El respaldo es la restauración a un punto en el tiempo de Neon (verificar cuántas horas cubre el plan gratuito): probarla una vez en una rama de Neon, nunca sobre Prod, y anotar los pasos. |
+| Cuidado | El repo es público: ningún correo, teléfono ni nombre de integrantes. Nunca subir un respaldo como artifact de GitHub Actions, porque en un repo público cualquiera puede descargarlo. Revisar en el reglamento vigente de la Ley N.° 29733 si hay que notificar incidentes a la Autoridad Nacional de Protección de Datos Personales y en qué plazo. |
+| Terminada cuando | Existen `SECURITY.md` y `docs/incidentes.md`, el equipo hizo un simulacro de secreto filtrado con una clave de prueba y restauró la base en una rama de Neon. |
 
 ## Fase v1. Base compartida: lo que usan todas las funcionalidades
 
@@ -80,7 +80,7 @@ Los números no cambian. Una tarea nueva toma el siguiente número libre y se ub
 
 | Campo | Detalle |
 |---|---|
-| Origen | Propuesta nueva de la revisión de seguridad; no está en el informe. Confirmar con el equipo antes de programarla. |
+| Origen | Propuesta de la revisión de seguridad, aceptada por el equipo el 2026-10-30 (ver `docs/decisiones.md`). No estaba en el informe. |
 | Va en | `core/middleware.py`, `config/settings/`, `scripts/smoke.sh` y `.github/zap-rules.tsv`. |
 | Debe tener | `Permissions-Policy` que niega todo salvo la cámara para el propio sitio (`camera=(self), microphone=(), geolocation=(), payment=(), usb=()`); `Cross-Origin-Opener-Policy: same-origin`; `Cross-Origin-Resource-Policy: same-origin`; `CSRF_COOKIE_HTTPONLY = True`; `Cache-Control: no-store` en toda página dinámica del ciudadano. |
 | Cómo | Agregar las cabeceras al middleware que ya pone la CSP, con valores fijos en el código. Sumarlas a la lista de `scripts/smoke.sh` y pasar a FAIL en `.github/zap-rules.tsv` las reglas 10010 (cookie sin HttpOnly), 10063 (Permissions-Policy) y 90004 (aislamiento de sitio). |
@@ -348,10 +348,10 @@ Los números no cambian. Una tarea nueva toma el siguiente número libre y se ub
 
 | Campo | Detalle |
 |---|---|
-| Origen | Propuesta nueva para que la plataforma sea más útil en el Perú; no está en el informe. Confirmar con el equipo antes de programarla. |
-| Va en | `static/` (manifiesto y service worker) y `analisis`. |
-| Debe tener | La plataforma instalable como PWA en Android, con Web Share Target: desde WhatsApp, «Compartir» un enlace o un texto abre Alerta Segura con el formulario ya lleno. En v2, también una captura. Una página sin conexión con la guía «Ya hice clic». |
-| Cómo | `manifest.json` con `share_target` por GET para texto y URL, que abre el inicio con el campo lleno; la persona pulsa Analizar y el formulario va con su token CSRF. Para imágenes, el share target es POST: un service worker recibe el archivo, lo guarda en el navegador y abre la página, que lo sube con CSRF. |
+| Origen | Propuesta para que la plataforma sea útil en el Perú, aceptada por el equipo el 2026-10-30 (ver `docs/decisiones.md`). No estaba en el informe. |
+| Va en | `static/` (manifiesto, íconos y service worker) y `analisis`. |
+| Debe tener | La plataforma instalable como PWA en Android, con Web Share Target: desde WhatsApp, «Compartir» un enlace o un texto abre Alerta Segura con el formulario ya lleno. |
+| Cómo | `manifest.json` con `share_target` por GET para texto y URL, que abre el inicio con el campo lleno; la persona pulsa Analizar y el formulario va con su token CSRF. Un service worker mínimo, solo para que la app sea instalable. Compartir capturas y la página sin conexión quedaron para después del MVP. |
 | Cuidado | Nunca analizar automáticamente lo compartido ni usar `@csrf_exempt`. El service worker no guarda resultados ni textos analizados. iPhone no soporta Web Share Target: ahí se copia y pega. |
 | Terminada cuando | En un Android real, compartir un enlace desde WhatsApp abre el formulario lleno, y Lighthouse reconoce la app como instalable. |
 
@@ -359,7 +359,7 @@ Los números no cambian. Una tarea nueva toma el siguiente número libre y se ub
 
 | Campo | Detalle |
 |---|---|
-| Origen | Propuesta nueva para que la plataforma sea más útil en el Perú; no está en el informe. Confirmar con el equipo antes de programarla. |
+| Origen | Propuesta para que la plataforma sea útil en el Perú, aceptada por el equipo el 2026-10-30 (ver `docs/decisiones.md`). No estaba en el informe. |
 | Va en | `templates/` (páginas estáticas) y una vista para `/.well-known/security.txt`. |
 | Debe tener | Política de privacidad (qué se guarda, por cuánto tiempo, para qué y qué nunca se guarda); términos de uso (la plataforma orienta y no garantiza, y no reemplaza al banco, a la policía ni a un abogado); «Cómo verificamos» (fuentes, señales y límites, como el cloaking); aviso de cuál es el único dominio oficial de Alerta Segura; contacto para dueños de sitios marcados por error; `security.txt` según RFC 9116. |
 | Cómo | Plantillas enlazadas desde el pie. Los plazos salen de la tarea de retención de datos. |
@@ -370,12 +370,12 @@ Los números no cambian. Una tarea nueva toma el siguiente número libre y se ub
 
 | Campo | Detalle |
 |---|---|
-| Origen | Propuesta nueva para que la plataforma sea más útil en el Perú; no está en el informe. Confirmar con el equipo antes de programarla. |
-| Va en | `templates/` (páginas estáticas). |
-| Debe tener | Una página por modalidad con cómo funciona, cómo reconocerla y qué hacer: «te yapeé por error», voucher falso de Yape o Plin, falso asesor del banco que llama, SMS de bloqueo de cuenta, devolución de SUNAT o bono falso, paquete retenido de Serpost u Olva, retiro de AFP, préstamos rápidos por app, trabajo por tareas o likes, inversión en cripto, «hola mamá, cambié de número», secuestro virtual, robo de cuenta de WhatsApp por código, QR de pago adulterado y venta falsa en Marketplace. |
-| Cómo | Plantillas con ejemplos ficticios. El motor de explicación enlaza a la modalidad cuando la detecta. Concreta el impacto de educación digital que promete el informe. |
+| Origen | Propuesta para que la plataforma sea útil en el Perú, aceptada por el equipo el 2026-10-30 (ver `docs/decisiones.md`). No estaba en el informe. |
+| Va en | `templates/` (una página estática). |
+| Debe tener | Una página con una sección por modalidad (cómo funciona, cómo reconocerla y qué hacer) para las seis más frecuentes: «te yapeé por error» y voucher falso de Yape o Plin; falso asesor del banco que llama; SMS o correo de bloqueo de cuenta; robo de cuenta de WhatsApp por código; premio, bono o devolución de SUNAT falsos; préstamos rápidos y trabajos por tareas en apps. |
+| Cómo | Una plantilla con anclas por modalidad y ejemplos ficticios. El motor de explicación enlaza a la sección cuando detecta la modalidad. Concreta el impacto de educación digital que promete el informe. Otras modalidades se agregan después como secciones nuevas. |
 | Cuidado | Textos con el mismo nivel de lectura que el motor de explicación (índice de 70 o más). Nada de capturas reales con datos de víctimas. |
-| Terminada cuando | Cada modalidad tiene su página y un resultado que detecta una modalidad enlaza a ella. |
+| Terminada cuando | La página tiene las seis secciones y un resultado que detecta una modalidad enlaza a la suya. |
 
 ## Fase v1. Consola interna y operación
 
@@ -449,23 +449,16 @@ Los números no cambian. Una tarea nueva toma el siguiente número libre y se ub
 
 | Campo | Detalle |
 |---|---|
-| Origen | Propuesta nueva de la revisión de seguridad; no está en el informe. Confirmar con el equipo antes de programarla. |
+| Origen | Propuesta de la revisión de seguridad, aceptada por el equipo el 2026-10-30 (ver `docs/decisiones.md`). No estaba en el informe. |
 | Va en | `core` y `analisis` (comando de `manage.py`). |
 | Debe tener | Plazos de conservación por tipo de dato: análisis, reportes resueltos, eventos de auditoría y caché técnica. Una purga que borra en lotes pequeños. El almacenamiento de Neon vigilado (el plan gratuito era de 0,5 GB; verificar el límite actual). |
-| Cómo | Comando `purgar_datos`. Render gratuito no tiene tareas programadas: correrlo desde un workflow programado de GitHub Actions con un secreto del environment `production`, o a mano cada mes. Decidir en equipo. |
+| Cómo | Comando `purgar_datos`, que un integrante corre a mano una vez al mes contra Prod. Render gratuito no tiene tareas programadas, y automatizarlo exigiría guardar la `DATABASE_URL` de Prod en GitHub Actions. |
 | Cuidado | La auditoría se conserva más tiempo que el resto (se propone un año) y su purga también queda auditada. Los plazos se publican en la política de privacidad. Conservar solo lo necesario es un principio de la Ley N.° 29733. |
 | Terminada cuando | Un test crea datos vencidos y vigentes y confirma que la purga borra solo los vencidos. |
 
-### 41. Respaldo y recuperación de la base
+### 41. Respaldo y recuperación de la base (descartada)
 
-| Campo | Detalle |
-|---|---|
-| Origen | Propuesta nueva de la revisión de seguridad; no está en el informe. Confirmar con el equipo antes de programarla. |
-| Va en | Neon y `docs/incidentes.md`. |
-| Debe tener | Una restauración probada de la base de Prod: la restauración a un punto en el tiempo de Neon (verificar cuántas horas cubre el plan) y una exportación periódica cifrada del catálogo, las versiones de reglas y la auditoría. |
-| Cómo | `pg_dump` cifrado con una clave del equipo y guardado fuera del repo. La prueba de restauración se hace en una rama de Neon, nunca sobre Prod. |
-| Cuidado | Nunca subir un respaldo como artifact de GitHub Actions: en un repo público cualquiera puede descargarlo. |
-| Terminada cuando | El equipo restauró un respaldo en una rama de Neon, Dev funcionó contra ella y el procedimiento quedó en `docs/incidentes.md`. |
+Se fusionó con la tarea 5, que incluye la restauración probada en una rama de Neon. La exportación periódica cifrada pasó a la tarea 61. No se programa.
 
 ## Fase v2. Capturas y códigos QR
 
@@ -504,16 +497,9 @@ Los números no cambian. Una tarea nueva toma el siguiente número libre y se ub
 | Cuidado | Las expresiones corren sobre texto hostil: mismas reglas contra ReDoS que en el enmascarado. El texto se enmascara antes de guardarlo y nunca entra a la caché. Funciona completo sin el modelo de lenguaje. Los ejemplos de prueba son ficticios. |
 | Terminada cuando | Tests con mensajes de estafa típicos (falso bloqueo de cuenta, premio de Yape, deuda con SUNAT, código de WhatsApp) activan las categorías esperadas, también escritos con letras separadas o caracteres de ancho cero, y un mensaje legítimo no activa ninguna. |
 
-### 45. Señales del contenido de la página
+### 45. Señales del contenido de la página (descartada)
 
-| Campo | Detalle |
-|---|---|
-| Origen | Propuesta nueva de la revisión de seguridad; no está en el informe. Confirmar con el equipo antes de programarla. |
-| Va en | `analisis` (señales) y `motor` (peso nuevo). |
-| Debe tener | Señales tomadas del HTML de la página de destino, ya descargado por `core/net.py` dentro de los 2 MB: campos de contraseña, de tarjeta o de código OTP, formularios que envían a otro dominio, nombre de una marca del catálogo en el título de un dominio que no es suyo y frases típicas de kits de phishing. |
-| Cómo | `html.parser` de la biblioteca estándar, sin ejecutar JavaScript ni cargar recursos. Un peso nuevo en una versión de reglas, calibrado con el set de regresión. |
-| Cuidado | Con cloaking el servidor ve una página limpia: estas señales solo suman, y su ausencia nunca baja el riesgo ni cuenta para la cobertura. Cambia el motor: decidir en equipo. |
-| Terminada cuando | Tests con páginas ficticias guardadas (login falso y página legítima) activan o no las señales, y la cobertura no cambia cuando la página no trae nada. |
+Cambia los pesos del motor, exige calibrarlos y agrega superficie de ataque al leer HTML hostil, y el cloaking le quita valor. Pasó como idea a la tarea 61. No se programa.
 
 ### 46. Reglas y pesos versionados con simulación
 
@@ -537,38 +523,17 @@ Los números no cambian. Una tarea nueva toma el siguiente número libre y se ub
 | Cuidado | Para agrupar basta la huella; no hace falta guardar el texto en claro. Fusiones y separaciones quedan auditadas. |
 | Terminada cuando | Tests agrupan en una campaña dos mensajes casi iguales con dominios distintos y marcan inactiva una campaña sin observaciones en 31 días. |
 
-### 48. Detección temprana de dominios falsos (Certificate Transparency)
+### 48. Detección temprana de dominios falsos (Certificate Transparency) (descartada)
 
-| Campo | Detalle |
-|---|---|
-| Origen | Propuesta nueva de la revisión de seguridad; no está en el informe. Confirmar con el equipo antes de programarla. |
-| Va en | `catalogo` y `curacion` (comando de `manage.py`). |
-| Debe tener | Búsqueda diaria de certificados nuevos cuyo dominio contiene una marca del catálogo sin ser oficial (por ejemplo, «bcp» o «yape» en un dominio ajeno), para encontrar sitios falsos antes de que lleguen a la gente. Los candidatos entran a la cola de curación, nunca directo a una detección. |
-| Cómo | Consultar los registros públicos de Certificate Transparency (por ejemplo, crt.sh) por la política de salida de `core/net.py`. Sin tareas programadas en Render: workflow programado de GitHub Actions o a mano. |
-| Cuidado | Crt.sh es gratuito y a veces lento o con límites: tolerar fallos. Hay muchos falsos positivos; por eso pasa por un analista. |
-| Terminada cuando | El comando trae candidatos para las marcas del catálogo y aparecen en la cola marcados como detección temprana. |
+Necesita una tarea diaria que Render gratuito no permite, depende de crt.sh, que es inestable, y suma trabajo de curación. Pasó como idea a la tarea 61. No se programa.
 
-### 49. Estafas circulando (alertas públicas)
+### 49. Estafas circulando (alertas públicas) (descartada)
 
-| Campo | Detalle |
-|---|---|
-| Origen | Propuesta nueva para que la plataforma sea más útil en el Perú; no está en el informe. Confirmar con el equipo antes de programarla. |
-| Va en | `curacion` (publicación) y `templates/` (página pública). |
-| Debe tener | Una página pública con las campañas activas que un analista aprobó: modalidad, marca suplantada, un ejemplo del mensaje enmascarado y resumido, el dominio desactivado (`ejemplo[.]com`, no clicable) y desde cuándo circula. |
-| Cómo | Un campo «publicable» en la campaña que solo cambia un analista, con auditoría. Página cacheable y liviana. |
-| Cuidado | Solo casos confirmados: publicar por error a un negocio legítimo lo daña. Nunca datos personales ni datos de fuentes externas. |
-| Terminada cuando | Una campaña aprobada aparece en la página, una no aprobada no, y el dominio no es un enlace. |
+Publicar campañas exige moderación y expone al equipo a dañar a un negocio legítimo por error. Pasó como idea a la tarea 61. No se programa.
 
-### 50. Reportar sitios confirmados para darlos de baja
+### 50. Reportar sitios confirmados para darlos de baja (descartada)
 
-| Campo | Detalle |
-|---|---|
-| Origen | Propuesta nueva para que la plataforma sea más útil en el Perú; no está en el informe. Confirmar con el equipo antes de programarla. |
-| Va en | `curacion`. |
-| Debe tener | Desde un caso o una campaña confirmada, una lista para reportarla a Google Safe Browsing, a la entidad suplantada por su canal oficial de fraude, al registrador y al hosting por su contacto de abuso, y a la PNP si corresponde. Estado del reporte: pendiente, reportado o dado de baja. |
-| Cómo | Manual al inicio, con los contactos sacados del catálogo y de RDAP, que informa el contacto de abuso del registrador. Cada reporte queda auditado. |
-| Cuidado | Reportar solo casos confirmados por un analista. Nunca reenviar datos de la persona que consultó. |
-| Terminada cuando | Un caso confirmado muestra sus contactos de reporte y su estado. |
+Es trabajo operativo continuo más que software. Pasó como idea a la tarea 61. No se programa.
 
 ### 51. Modelo de lenguaje opcional (solo si el equipo lo decide)
 
@@ -644,7 +609,7 @@ Los números no cambian. Una tarea nueva toma el siguiente número libre y se ub
 
 | Campo | Detalle |
 |---|---|
-| Origen | Propuesta nueva de la revisión de seguridad; no está en el informe. Confirmar con el equipo antes de programarla. |
+| Origen | Propuesta de la revisión de seguridad, aceptada por el equipo el 2026-10-30 (ver `docs/decisiones.md`). No estaba en el informe. |
 | Va en | Dev y `docs/`. |
 | Debe tener | Una revisión de seguridad propia con la guía de pruebas de OWASP (WSTG) y los controles de ASVS nivel 2 que apliquen. Casos mínimos: evasiones de SSRF, adivinar identificadores de resultados ajenos, saltar el rate limit con un `X-Forwarded-For` falso o rotando IPv6, XSS en la curación y en el panel, CSRF, bloqueo de login y TOTP, archivos políglotas e imágenes enormes, y ReDoS en el texto. |
 | Cómo | Contra Dev, nunca contra Prod. Un escaneo activo de ZAP solo con acuerdo del equipo, porque gasta cuota de las fuentes. Cada hallazgo se registra como aviso de seguridad privado en GitHub y se corrige con su test. |
@@ -673,16 +638,9 @@ Los números no cambian. Una tarea nueva toma el siguiente número libre y se ub
 | Cuidado | La credencial de demostración es inventada, nunca real; si push protection la bloquea, eso también es evidencia. Borrar la rama al cerrar el PR. Los reportes de ZAP quedan como artifacts que cualquiera puede descargar en un repo público, con la URL de Dev y los hallazgos abiertos: corregir antes de publicar. |
 | Terminada cuando | Hay capturas o enlaces de los tres PR bloqueados, el último reporte de ZAP y la tabla de pruebas completa. |
 
-### 60. Dominio propio para producción
+### 60. Dominio propio para producción (descartada)
 
-| Campo | Detalle |
-|---|---|
-| Origen | Propuesta nueva para que la plataforma sea más útil en el Perú; no está en el informe. Confirmar con el equipo antes de programarla. |
-| Va en | Render y `config/settings/prod.py`. |
-| Debe tener | Un dominio propio para Prod. Un dominio compartido `*.onrender.com` no inspira confianza, es fácil de imitar y no admite HSTS con subdominios. |
-| Cómo | Configurar el dominio en Render; actualizar `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS` y `APP_URL`; subir HSTS de forma gradual hasta un año con `includeSubDomains` y quitar entonces el silencio de la advertencia W005. Agregar el dominio al catálogo como marca propia. |
-| Cuidado | Tiene costo anual: decidir en equipo. Cambiar `prod.py` requiere acuerdo del equipo. |
-| Terminada cuando | Prod responde en el dominio propio con HSTS de un año y `check --deploy` pasa sin silenciar W005. |
+Tiene costo anual y para el curso basta el dominio de Render. Si el proyecto sigue después del curso, es lo primero de la tarea 61. No se programa.
 
 ### 61. Después del MVP (opcional)
 
@@ -690,7 +648,7 @@ Los números no cambian. Una tarea nueva toma el siguiente número libre y se ub
 |---|---|
 | Origen | Informe del Hito 1, con refuerzos de la revisión de seguridad. |
 | Va en | Infraestructura y producto. |
-| Debe tener | Worker de Celery dedicado y Redis gestionado si se supera el plan gratuito (`CELERY_EAGER=False` y otro backend de caché); un rol de base de datos para migraciones y otro sin permisos de esquema para la app; Sentry sin datos personales; evaluar el licenciamiento de datos agregados propios. Ideas de producto: bot de WhatsApp con la API oficial (costo y privacidad), extensión de navegador, API pública con claves y límites, llaves de acceso (WebAuthn) para la consola y versión en quechua. |
+| Debe tener | Infraestructura: worker de Celery dedicado y Redis gestionado si se supera el plan gratuito (`CELERY_EAGER=False` y otro backend de caché); un rol de base de datos para migraciones y otro sin permisos de esquema para la app; Sentry sin datos personales; dependencias con `--require-hashes`; desplegar en Render la imagen del CI por digest; exportación periódica cifrada de catálogo, reglas y auditoría. Producto, en orden de prioridad: dominio propio con HSTS de un año; señales del contenido de la página; detección temprana de dominios falsos con Certificate Transparency; página pública de estafas circulando; reporte de sitios confirmados para darlos de baja; compartir capturas desde WhatsApp y página sin conexión; bot de WhatsApp con la API oficial; extensión de navegador; API pública con claves y límites; llaves de acceso (WebAuthn) para la consola; versión en quechua; evaluar el licenciamiento de datos agregados propios. |
 | Cómo | Cada punto en su propio PR y con acuerdo del equipo. |
-| Cuidado | No entra en el MVP del Hito 2. |
+| Cuidado | No entra en el MVP del Hito 2. El detalle de las ideas que salieron del plan está en sus tareas descartadas. |
 | Terminada cuando | El equipo decide cuáles se hacen y los registra en `docs/decisiones.md`. |
