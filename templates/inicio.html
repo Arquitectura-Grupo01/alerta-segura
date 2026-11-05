@@ -16,8 +16,8 @@
 
     {# El formulario todavía no envía: falta el orquestador del análisis (tarea 25). #}
     {# Con data-prototipo, inicio.js muestra el esqueleto del resultado sin enviar. #}
+    {# El token va al final: la regla django-no-csrf-token de Semgrep no lo ve a más de 10 líneas de </form>. #}
     <form class="analisis" id="form-analisis" method="post" novalidate data-prototipo>
-      {% csrf_token %}
       <div class="analisis-cabeza">
         <label class="etiqueta" for="enlace">Pega el enlace que recibiste</label>
         <span class="analisis-meta">Gratis y sin registro</span>
@@ -31,6 +31,7 @@
       </div>
       <p class="mensaje" id="enlace-mensaje" aria-live="polite"></p>
       <p class="aviso" id="enlace-aviso"><strong>Nunca escribas aquí contraseñas, claves ni códigos.</strong> Para revisar un enlace no los necesitamos.</p>
+      {% csrf_token %}
     </form>
   </div>
 </section>
