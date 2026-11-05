@@ -1,0 +1,65 @@
+{% load static %}<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Alerta Segura{% endblock %}</title>
+  <meta name="description" content="{% block descripcion %}Revisa si un enlace que te llegó puede ser una estafa. Gratis y sin registro.{% endblock %}">
+  <meta name="theme-color" content="#0A141B">
+  <meta name="color-scheme" content="dark">
+  <link rel="preload" href="{% static 'fonts/geist-latin.woff2' %}" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="{% static 'css/sitio.css' %}">
+  {% block scripts %}{% endblock %}
+</head>
+<body>
+  {# Íconos propios en un solo sprite: se reutilizan con <use> y no piden archivos extra. #}
+  <svg class="sprite" aria-hidden="true" focusable="false">
+    <symbol id="i-flecha" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+    <symbol id="i-pegar" viewBox="0 0 24 24"><rect x="8.5" y="3" width="7" height="4" rx="1"/><path d="M15.5 5H17a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h1.5"/></symbol>
+    <symbol id="i-seguro" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></symbol>
+    <symbol id="i-cuidado" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V13M12 16.5v.01"/></symbol>
+    <symbol id="i-peligroso" viewBox="0 0 24 24"><path d="M12 3.5 21.5 20h-19z"/><path d="M12 10v4.5M12 17.5v.01"/></symbol>
+    <symbol id="i-alto" viewBox="0 0 24 24"><path d="M8.1 2.6h7.8l5.5 5.5v7.8l-5.5 5.5H8.1l-5.5-5.5V8.1z"/><path d="M9 9l6 6M15 9l-6 6"/></symbol>
+  </svg>
+
+  <header class="cabecera">
+    <div class="contenedor cabecera-fila">
+      <a class="marca" href="{% url 'inicio' %}">Alerta Segura</a>
+      <nav class="nav" aria-label="Principal">
+        <a class="solo-amplio" href="{% url 'inicio' %}#niveles">Cómo leer el resultado</a>
+        <a href="{% url 'inicio' %}#ya-hice-clic">Ya hice clic</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="contenido">
+    {% block contenido %}{% endblock %}
+  </main>
+
+  {# Las páginas legales todavía no existen (tarea 32). #}
+  <footer class="pie">
+    <div class="contenedor pie-grid">
+      <div>
+        <p class="pie-marca">Alerta Segura</p>
+        <p>Orienta antes de actuar. No garantiza que un enlace sea seguro, no recupera dinero y no reemplaza a tu banco ni a la policía.</p>
+      </div>
+      <div>
+        <h2 class="pie-titulo">Qué guardamos</h2>
+        <p>El dominio, la fecha y el nivel de cada análisis. La dirección completa, solo si resulta peligrosa. No pedimos tu nombre, tu número ni tu correo, no guardamos tu IP y no usamos cookies de rastreo.</p>
+      </div>
+      <nav aria-labelledby="pie-paginas">
+        <h2 class="pie-titulo" id="pie-paginas">Más información</h2>
+        <ul class="pie-enlaces">
+          <li><a href="/privacidad/">Privacidad</a></li>
+          <li><a href="/terminos/">Términos de uso</a></li>
+          <li><a href="/como-verificamos/">Cómo verificamos</a></li>
+          <li><a href="/contacto/">Mi web aparece por error</a></li>
+        </ul>
+      </nav>
+    </div>
+    <div class="contenedor pie-final">
+      <p>Proyecto del curso Arquitectura de Aplicaciones de la UPC, 2026.</p>
+    </div>
+  </footer>
+</body>
+</html>
