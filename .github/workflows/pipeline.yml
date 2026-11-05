@@ -20,6 +20,10 @@ env:
   PYTHON_VERSION: "3.12"
   GITLEAKS_VERSION: "8.21.2"   # verificar última estable y fijarla
   TRIVY_VERSION: "0.58.0"      # verificar última estable y fijarla
+  # La etiqueta stable se reconstruye sin aviso y Docker usa el digest. Dependabot
+  # no actualiza imágenes dentro de un docker run, así que el digest se renueva a
+  # mano con `docker buildx imagetools inspect ghcr.io/zaproxy/zaproxy:stable`.
+  ZAP_IMAGE: "ghcr.io/zaproxy/zaproxy:stable@sha256:030d3df57735dacbb83464854758e674dd9ad01d79d12a129a8e58b1fd384238"
 
 jobs:
   # ─────────────────────────── CI ───────────────────────────
@@ -40,12 +44,12 @@ jobs:
       DJANGO_SECRET_KEY: ci-only-test-key-not-a-secret
       DATABASE_URL: postgres://alerta:alerta@localhost:5432/alerta
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Crear el rol de la app sin superusuario (igual que en Neon)
         run: >-
           docker exec -i ${{ job.services.postgres.id }}
           psql -U postgres -v ON_ERROR_STOP=1 < scripts/init_postgres.sql
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
@@ -70,8 +74,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
@@ -87,8 +91,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
@@ -102,7 +106,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0   # todo el historial: un secreto borrado sigue en commits viejos
       - name: Instalar gitleaks
@@ -117,9 +121,24 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Construir imagen
         run: docker build -t alerta-segura:ci .
+      # Va antes del escaneo porque, si Trivy encuentra una CVE, el job se corta
+      # y el SBOM tiene que quedar en todas las ejecuciones.
+      - name: Generar SBOM (CycloneDX)
+        run: |
+          mkdir -p sbom
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD/sbom:/sbom" \
+            "aquasec/trivy:${TRIVY_VERSION}" image \
+            --format cyclonedx --output /sbom/sbom.cdx.json \
+            alerta-segura:ci
+      - name: Guardar SBOM
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sbom-${{ github.sha }}
+          path: sbom/sbom.cdx.json
+          retention-days: 30
       - name: Escanear vulnerabilidades HIGH/CRITICAL con parche disponible
         run: |
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
@@ -149,7 +168,7 @@ jobs:
     timeout-minutes: 15
     environment: development
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Esperar la versión nueva y validarla
         run: bash scripts/smoke.sh "${{ vars.APP_URL }}" "${{ github.sha }}"
 
@@ -160,19 +179,19 @@ jobs:
     timeout-minutes: 15
     environment: development
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # -I: las advertencias solo avisan. Las reglas FAIL de .github/zap-rules.tsv
       # detienen el pipeline, y con él el despliegue automático a producción.
       - name: Escaneo pasivo con ZAP
         run: |
           mkdir -p zap && chmod 777 zap
           cp .github/zap-rules.tsv zap/
-          docker run --rm -v "$PWD/zap:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:stable \
+          docker run --rm -v "$PWD/zap:/zap/wrk:rw" "$ZAP_IMAGE" \
             zap-baseline.py -t "${{ vars.APP_URL }}" -c zap-rules.tsv \
             -r zap-report.html -J zap-report.json -I
       - name: Publicar reporte como evidencia
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: zap-report-${{ github.sha }}
           path: zap/
@@ -198,6 +217,6 @@ jobs:
     timeout-minutes: 15
     environment: production
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Esperar la versión nueva y validarla
         run: bash scripts/smoke.sh "${{ vars.APP_URL }}" "${{ github.sha }}"
