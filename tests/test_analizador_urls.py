@@ -3,7 +3,7 @@
 
 import pytest
 
-from analisis.urls import URLInvalida, normalizar_url
+from analisis.normalizacion import URLInvalida, normalizar_url
 
 
 def test_agrega_https():
