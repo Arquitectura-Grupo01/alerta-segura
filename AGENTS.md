@@ -107,6 +107,7 @@ Consola interna:
 ## Interfaz
 
 - Templates de Django con Tailwind CSS compilado y purgado. Sin React, Next.js ni otra SPA. El JavaScript es mínimo, propio y va en archivos estáticos: nada de `<script>` en línea, `<style>` en línea ni atributos `on*` o `style`, porque la CSP de `config/settings/base.py` los bloquea.
+- El JavaScript no lee cookies: la de CSRF es HttpOnly. Un POST desde JS toma el token del formulario.
 - Pensada primero para el celular. La primera carga pesa 200 KB o menos comprimida.
 - Cuatro niveles con estos textos exactos, siempre con color, ícono y palabra a la vez. Nunca "100 % seguro"; en el nivel más bajo se aclara que la plataforma orienta y no garantiza.
 - Colores: Seguro `#467A5E`, Ten cuidado `#8F6824`, Peligroso `#B4533F`, Peligro alto `#8E2F2A`, texto `#162A38`, fondo `#F7F7F5` y tarjetas blancas. Cada color tiene contraste de 4,5:1 o más sobre ambos fondos (WCAG AA); uno nuevo o modificado también debe tenerlo.
