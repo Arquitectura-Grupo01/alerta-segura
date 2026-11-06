@@ -11,3 +11,6 @@
 10037	FAIL	(Server Leaks Information via "X-Powered-By" HTTP Response Header Field(s))
 10098	FAIL	(Cross-Domain Misconfiguration)
 10017	FAIL	(Cross-Domain JavaScript Source File Inclusion)
+10010	FAIL	(Cookie No HttpOnly Flag)
+10063	FAIL	(Permissions Policy Header Not Set)
+90004	FAIL	(Insufficient Site Isolation Against Spectre Vulnerability)

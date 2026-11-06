@@ -27,12 +27,20 @@ for i in $(seq 1 "$INTENTOS"); do
 
     CABECERAS="$(curl -sSI --max-time 15 "$URL/health/")"
     for h in "strict-transport-security" "x-content-type-options" "x-frame-options" \
-             "content-security-policy"; do
+             "content-security-policy" "permissions-policy" "cross-origin-opener-policy" \
+             "cross-origin-embedder-policy" "cross-origin-resource-policy"; do
       if ! grep -qi "^$h:" <<<"$CABECERAS"; then
         echo "FALLA: falta la cabecera de seguridad '$h'."
         exit 1
       fi
     done
+
+    # Una página con token de CSRF no debe quedar en una caché compartida.
+    INICIO="$(curl -sSI --max-time 15 "$URL/")"
+    if ! grep -qi "^cache-control:.*no-store" <<<"$INICIO"; then
+      echo "FALLA: la página de inicio no manda 'Cache-Control: no-store'."
+      exit 1
+    fi
     echo "Cabeceras de seguridad presentes. Smoke test OK."
     exit 0
   fi
