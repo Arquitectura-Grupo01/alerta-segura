@@ -13,12 +13,14 @@ Implementado:
 - `/health/` responde si el proceso está vivo y devuelve el ambiente y el commit desplegado. `/ready/` confirma que la aplicación alcanza la base de datos.
 - `core/net.py` contiene la política de salida a internet. `validar_url` exige `http` o `https` y puerto 80 o 443, y rechaza el host si alguna de sus IP no es pública: redes privadas, loopback, link-local, metadatos de nube, CGNAT, multicast o IPv4 dentro de IPv6. También fija el máximo de redirecciones, el timeout y el tamaño de respuesta que usará el analizador. Solo valida; todavía no hace conexiones.
 - Cabecera Content-Security-Policy en todas las respuestas (`core/middleware.py`), sin scripts ni estilos en línea.
+- Cabeceras de seguridad fijas en todas las respuestas (`core/middleware.py`): Permissions-Policy, que solo deja la cámara del propio sitio, Cross-Origin-Opener-Policy, Cross-Origin-Embedder-Policy y Cross-Origin-Resource-Policy. Toda respuesta sin política de caché propia sale con `Cache-Control: no-store`, y los estáticos no llevan `Access-Control-Allow-Origin`.
+- La cookie de CSRF es HttpOnly. El JavaScript propio no la lee: si hace un POST, toma el token del formulario.
 - Settings por ambiente (`dev`, `test`, `prod`) leídos de variables de entorno. `prod` activa la redirección a HTTPS, cookies `Secure`, HSTS, `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy` y TLS obligatorio hacia PostgreSQL.
 - Admin de Django en una ruta configurable.
 - Celery configurado con Redis como broker, sin tareas definidas.
 - Imagen Docker multi-stage que se ejecuta con un usuario sin privilegios. En local y en el CI la aplicación entra a PostgreSQL con un rol sin superusuario.
 - Pipeline de GitHub Actions con tests, cobertura, análisis estático, auditoría de dependencias, detección de secretos, escaneo de la imagen, despliegue a Dev y Prod, smoke test y DAST.
-- 42 tests en `tests/` sobre los endpoints de salud, la CSP, la política de salida y los settings.
+- 72 tests en `tests/` sobre los endpoints de salud, la página de inicio, la CSP y las demás cabeceras de seguridad, la política de salida y los settings.
 
 Planificado según el informe del Hito 1, sin código todavía:
 

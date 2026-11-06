@@ -43,7 +43,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    "core.middleware.ContentSecurityPolicyMiddleware",
+    "core.middleware.CabecerasSeguridadMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -110,6 +110,15 @@ CONTENT_SECURITY_POLICY = (
     "form-action 'self'; frame-ancestors 'none'"
 )
 CONTENT_SECURITY_POLICY_REPORT_ONLY = False
+
+# La cookie de CSRF no la lee ningún JavaScript propio: el token viaja en el
+# formulario. HttpOnly evita que un script inyectado la robe. Control fijo.
+CSRF_COOKIE_HTTPONLY = True
+
+# WhiteNoise manda Access-Control-Allow-Origin: * en los estáticos, pensado para
+# servirlos desde una CDN. Aquí salen del mismo origen y ninguna página de otro
+# sitio debe leerlos: ZAP lo marca como mala configuración entre dominios (10098).
+WHITENOISE_ALLOW_ALL_ORIGINS = False
 
 # --- Celery -----------------------------------------------------------------
 # En Render Free no existen background workers. CELERY_EAGER=True ejecuta las
