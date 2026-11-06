@@ -29,6 +29,7 @@ services:
     environment:
       DATABASE_URL: postgres://alerta:alerta@db:5432/alerta
       REDIS_URL: redis://redis:6379/0
+      REDIS_CACHE_URL: redis://redis:6379/1
     ports: ["8000:8000"]
     volumes: [".:/app"]
     depends_on:
@@ -42,6 +43,7 @@ services:
     environment:
       DATABASE_URL: postgres://alerta:alerta@db:5432/alerta
       REDIS_URL: redis://redis:6379/0
+      REDIS_CACHE_URL: redis://redis:6379/1
     volumes: [".:/app"]
     depends_on: [db, redis]
 

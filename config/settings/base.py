@@ -11,6 +11,8 @@ from pathlib import Path
 import environ
 from django.core.exceptions import ImproperlyConfigured
 
+from .cache import construir_caches
+
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 env = environ.Env()
@@ -74,6 +76,13 @@ TEMPLATES = [
 
 DATABASES = {"default": env.db("DATABASE_URL")}
 DATABASES["default"]["CONN_MAX_AGE"] = env.int("DB_CONN_MAX_AGE", default=60)
+
+# Caché compartida entre procesos (ver config/settings/cache.py). "db" es el valor
+# por defecto porque funciona donde haya PostgreSQL, como en Render, y la tabla la
+# crea scripts/entrypoint.sh. En local .env.example pide "redis". Redis usa la base
+# 1 y no la 0 del broker de Celery: cache.clear() hace FLUSHDB y vaciaría la cola.
+CACHE_BACKEND = env("CACHE_BACKEND", default="db")
+CACHES = construir_caches(CACHE_BACKEND, env("REDIS_CACHE_URL", default="redis://localhost:6379/1"))
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},

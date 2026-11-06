@@ -46,6 +46,35 @@ def test_prod_exige_tls_hacia_postgres():
     assert "'sslmode': 'require'" in salida
 
 
+def test_sin_cache_backend_se_usa_la_tabla_de_postgres():
+    salida = _python(
+        "from config.settings import prod; print(prod.CACHES['default']['BACKEND'])",
+        DATABASE_URL="sqlite://:memory:",
+    )
+    assert salida.endswith("db.DatabaseCache")
+
+
+def test_cache_backend_redis_usa_redis_cache_url():
+    salida = _python(
+        "from config.settings import prod; print(prod.CACHES['default']['LOCATION'])",
+        CACHE_BACKEND="redis",
+        REDIS_CACHE_URL="redis://redis:6379/1",
+        DATABASE_URL="sqlite://:memory:",
+    )
+    assert salida == "redis://redis:6379/1"
+
+
+def test_cache_backend_invalido_impide_arrancar():
+    resultado = subprocess.run(
+        [sys.executable, "-c", "from config.settings import prod"],
+        cwd=BASE_DIR, capture_output=True, text=True, timeout=60,
+        env={**os.environ, "DJANGO_SECRET_KEY": "solo-test", "CACHE_BACKEND": "memcached",
+             "DATABASE_URL": "sqlite://:memory:"},
+    )
+    assert resultado.returncode != 0
+    assert "CACHE_BACKEND" in resultado.stderr
+
+
 def test_prod_respeta_un_sslmode_mas_estricto():
     salida = _python(
         "from config.settings import prod; print(prod.DATABASES['default']['OPTIONS'])",

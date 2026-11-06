@@ -8,6 +8,9 @@ set -e
 export DJANGO_SETTINGS_MODULE="${DJANGO_SETTINGS_MODULE:-config.settings.prod}"
 
 python manage.py migrate --noinput
+# Crea la tabla de la caché compartida si CACHE_BACKEND=db. Es idempotente y no
+# hace nada con otro backend.
+python manage.py createcachetable
 
 exec gunicorn config.wsgi:application \
     --bind "0.0.0.0:${PORT:-8000}" \
