@@ -141,6 +141,8 @@ CELERY_TASK_TIME_LIMIT = 30
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    # Todo mensaje pasa por el enmascarado antes de escribirse (core/enmascarado.py).
+    "filters": {"enmascarar": {"()": "core.enmascarado.FiltroEnmascarado"}},
+    "handlers": {"console": {"class": "logging.StreamHandler", "filters": ["enmascarar"]}},
     "root": {"handlers": ["console"], "level": env("LOG_LEVEL", default="INFO")},
 }

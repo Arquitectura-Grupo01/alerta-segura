@@ -100,9 +100,8 @@ def test_no_se_borra_una_cuenta_con_eventos(evento, analista):
     {"destino": "203.0.113.7"},
     {"destino": "conecto a 203.0.113.7 y fallo"},
     {"destino": "2001:db8::1"},
-    {"contacto": "persona@ejemplo.invalid"},
-    {"documento": "DNI 45678912"},
-    {"tarjeta_texto": "4111 1111 1111 1111"},
+    {"destino": "\uff12\uff10\uff13.0.113.7"},
+    {"destino": "203.0\u200b.113.7"},
     {"largo": "a" * 121},
     {"anidado": {"a": 1}},
     {"lista": [1, 2]},
@@ -115,7 +114,18 @@ def test_el_detalle_rechaza_datos_personales_y_formas_raras(detalle):
     assert EventoAuditoria.objects.count() == 0
     # El mensaje nombra el campo, no repite el valor rechazado.
     assert "203.0.113" not in str(error.value)
-    assert "45678912" not in str(error.value)
+
+
+def test_los_textos_se_guardan_enmascarados():
+    evento = registrar_evento(
+        TipoEvento.FALLO_FUENTE,
+        objeto="fuente:ficticia",
+        motivo="Pago de S/ 500 con tarjeta 4111 1111 1111 1111",
+        detalle={"nota": "DNI 45678912", "contacto": "persona@ejemplo.invalid"},
+    )
+    guardado = EventoAuditoria.objects.get(pk=evento.pk)
+    assert guardado.motivo == "Pago de [MONTO] con tarjeta [TARJETA]"
+    assert guardado.detalle == {"nota": "DNI [DNI]", "contacto": "[CORREO]"}
 
 
 def test_el_detalle_acepta_numeros_booleanos_y_none():
@@ -128,7 +138,7 @@ def test_el_detalle_acepta_numeros_booleanos_y_none():
 @pytest.mark.parametrize("campo,valor", [
     ("objeto", "http://ejemplo.invalid/"),
     ("objeto", "x" * 101),
-    ("motivo", "correo persona@ejemplo.invalid"),
+    ("motivo", "visto desde 203.0.113.7"),
     ("motivo", "x" * 201),
 ])
 def test_objeto_y_motivo_tambien_se_validan(campo, valor):
