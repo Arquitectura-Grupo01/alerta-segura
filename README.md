@@ -18,6 +18,7 @@ Implementado:
 - Settings por ambiente (`dev`, `test`, `prod`) leídos de variables de entorno. `prod` activa la redirección a HTTPS, cookies `Secure`, HSTS, `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy` y TLS obligatorio hacia PostgreSQL.
 - Admin de Django en una ruta configurable.
 - Celery configurado con Redis como broker, sin tareas definidas.
+- Caché compartida entre procesos (`config/settings/cache.py`): Redis en local y una tabla de PostgreSQL con tope de 5000 filas en Render. `scripts/entrypoint.sh` crea la tabla con `createcachetable` al arrancar. Los tests usan `LocMemCache`.
 - Imagen Docker multi-stage que se ejecuta con un usuario sin privilegios. En local y en el CI la aplicación entra a PostgreSQL con un rol sin superusuario.
 - Pipeline de GitHub Actions con tests, cobertura, análisis estático, auditoría de dependencias, detección de secretos, escaneo de la imagen, despliegue a Dev y Prod, smoke test y DAST.
 - 72 tests en `tests/` sobre los endpoints de salud, la página de inicio, la CSP y las demás cabeceras de seguridad, la política de salida y los settings.
@@ -112,6 +113,8 @@ pytest --cov
 | `DJANGO_ADMIN_PATH` | Ruta del admin de Django. Es configurable porque `/admin/` recibe escaneo automatizado |
 | `DATABASE_URL` | Conexión a PostgreSQL. Obligatoria. Dentro de Docker Compose la reemplaza la del servicio `db` |
 | `REDIS_URL` | Broker de Celery |
+| `CACHE_BACKEND` | Almacén de la caché compartida: `redis` en local o `db` (tabla de PostgreSQL). Sin la variable se usa `db`, que es lo que corre en Render |
+| `REDIS_CACHE_URL` | Redis de la caché cuando `CACHE_BACKEND=redis`. Usa la base 1 para que `cache.clear()` no vacíe la cola de Celery |
 | `CELERY_EAGER` | Si está activa, las tareas corren dentro del proceso web y no en el worker |
 | `APP_ENV` | Nombre del ambiente que devuelve `/health/` |
 | `LOG_LEVEL` | Nivel del logger raíz |
