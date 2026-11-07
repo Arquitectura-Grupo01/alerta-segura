@@ -33,7 +33,6 @@ MAX_BYTES_CUERPO = 5 * 1024 * 1024 + 64 * 1024
 PREFIJO_IPV6 = 64
 SAL_DE_LA_IP = "alerta.entrada.ip"
 
-MENSAJE_LIMITE = "Hiciste muchos análisis seguidos. Espera unos minutos y vuelve a intentarlo."
 
 
 def ip_del_cliente(request) -> str:
@@ -100,7 +99,7 @@ def limitar(politica: Politica):
         def envuelta(request, *args, **kwargs):
             clave = f"entrada:{politica.nombre}:{clave_de_ip(ip_del_cliente(request))}"
             if _contar(clave, politica.ventana_segundos) > politica.maximo:
-                respuesta = render(request, "inicio.html", {"error": MENSAJE_LIMITE}, status=429)
+                respuesta = render(request, "429.html", status=429)
                 respuesta["Retry-After"] = str(politica.ventana_segundos)
                 respuesta["Cache-Control"] = "no-store"
                 return respuesta
