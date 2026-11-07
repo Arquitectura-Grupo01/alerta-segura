@@ -3,11 +3,13 @@ from django.views.decorators.http import require_POST
 
 from analisis.heuristicas import detectar_senales
 from analisis.normalizacion import LARGO_MAXIMO, URLInvalida, normalizar
+from core.entrada import ANALISIS, limitar
 from motor.explicacion import explicar
 from motor.riesgo import Nivel, Senales, calcular
 
 
 @require_POST
+@limitar(ANALISIS)
 def analizar(request):
     """Analiza un enlace con las heurísticas locales y muestra el resultado.
 

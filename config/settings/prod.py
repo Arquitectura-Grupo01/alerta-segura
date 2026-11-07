@@ -16,6 +16,12 @@ if DATABASES["default"]["ENGINE"] == "django.db.backends.postgresql":
 
 # Render termina TLS en su proxy y reenvía por HTTP con este header.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+# Render pone Cloudflare delante de su proxy y no limpia el X-Forwarded-For que manda el
+# cliente, solo agrega: llega como [lo que escribió el cliente, IP del cliente, IP de
+# Cloudflare]. La IP del cliente es la penúltima. Verificar en Dev tras cada cambio de
+# Render (ver el PR de la tarea 12): una posición de más a la derecha junta a todos los
+# usuarios bajo una misma IP y los deja con 429 a la vez.
+ENTRADA_PROXIES_CONFIABLES = 2
 SECURE_SSL_REDIRECT = True
 # El health check interno de Render no debe recibir un 301.
 SECURE_REDIRECT_EXEMPT = [r"^health/$"]

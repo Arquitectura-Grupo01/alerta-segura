@@ -1351,3 +1351,58 @@ svg {
   .detalle summary::after,
   .detalle::details-content { transition: none; }
 }
+
+/* Páginas de error (templates/error_base.html y templates/500.html). */
+
+.pagina-error {
+  padding-block: 160px 96px;
+  min-height: 70vh;
+}
+
+.pagina-error-codigo {
+  margin: 0 0 12px;
+  color: var(--secundario);
+  font-size: 0.9375rem;
+  letter-spacing: 0.04em;
+}
+
+.pagina-error h1 {
+  margin: 0 0 16px;
+  max-width: 22ch;
+  color: var(--texto);
+  font-size: clamp(2rem, 6vw, 3.25rem);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.pagina-error-texto {
+  margin: 0 0 32px;
+  max-width: 40rem;
+  color: var(--cuerpo);
+  font-size: 1.125rem;
+  line-height: 1.6;
+}
+
+.boton-inicio {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding-inline: 22px;
+  border: 1px solid var(--linea);
+  border-radius: 999px;
+  background: var(--superficie);
+  color: var(--texto);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.boton-inicio:hover { border-color: var(--secundario); }
+
+.boton-inicio svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
