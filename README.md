@@ -20,8 +20,10 @@ Implementado:
 - Celery configurado con Redis como broker, sin tareas definidas.
 - Caché compartida entre procesos (`config/settings/cache.py`): Redis en local y una tabla de PostgreSQL con tope de 5000 filas en Render. `scripts/entrypoint.sh` crea la tabla con `createcachetable` al arrancar. Los tests usan `LocMemCache`.
 - Imagen Docker multi-stage que se ejecuta con un usuario sin privilegios. En local y en el CI la aplicación entra a PostgreSQL con un rol sin superusuario.
+- Auditoría de solo agregar (`core/models.py`, `core/auditoria.py`): el modelo `EventoAuditoria` rechaza editar y borrar, también en bloque, y el admin lo muestra solo de lectura. Las demás apps registran con `registrar_evento(tipo, usuario=..., objeto=..., motivo=..., detalle=...)`, que enmascara los textos y rechaza IP y URLs. Todavía no hay trigger en PostgreSQL ni cadena de hashes.
+- Enmascarado de datos personales (`core/enmascarado.py`): `enmascarar(texto)` reemplaza de forma irreversible tarjetas, CCI, cuentas, teléfonos, DNI, correos y montos por marcadores como `[DNI]`. Normaliza con NFKC y quita caracteres invisibles para que no se esquive, corta el texto a 20 000 caracteres y usa expresiones sin cuantificadores anidados. `FiltroEnmascarado` lo aplica a todo mensaje de log, a sus argumentos y a las trazas, y `registrar_evento` lo aplica a lo que guarda.
 - Pipeline de GitHub Actions con tests, cobertura, análisis estático, auditoría de dependencias, detección de secretos, escaneo de la imagen, despliegue a Dev y Prod, smoke test y DAST.
-- 72 tests en `tests/` sobre los endpoints de salud, la página de inicio, la CSP y las demás cabeceras de seguridad, la política de salida y los settings.
+- 326 tests en `tests/` sobre los endpoints de salud, la página de inicio, la CSP y las demás cabeceras de seguridad, la política de salida, la caché, la auditoría, el enmascarado y los settings.
 
 Planificado según el informe del Hito 1, sin código todavía:
 
