@@ -78,7 +78,7 @@ Django no impone la separación entre apps, así que la sostienen estos imports 
 
 Conexiones salientes:
 - `httpx`, o cualquier cliente HTTP, solo se importa en `core/net.py`. Las demás apps, `inteligencia` incluida, usan las funciones de ese módulo. Así los controles se aplican en un solo lugar.
-- Cada URL y cada redirección pasa por `validar_url` antes de conectar: exige `http` o `https`, puerto 80 o 443, y rechaza el host si alguna de sus IP no es pública. Máximo 3 redirecciones, timeout de conexión de 2 s y respuesta de 2 MB; usa las constantes de `core/net.py`, no copies los valores.
+- Cada URL y cada redirección pasa por `validar_url` antes de conectar: exige `http` o `https`, puerto 80 o 443, y rechaza el host si alguna de sus IP no es pública. Máximo 3 redirecciones, timeout de conexión de 2 s y respuesta de 2 MB; usa las constantes de `core/net.py`, no copies los valores. Para pedir una URL usa `core.net.pedir_url`, que ya aplica todo esto, y nunca abras una conexión por tu cuenta.
 - La conexión va a la IP ya validada con el header `Host` original; una segunda resolución DNS permitiría DNS rebinding. Cada destino bloqueado se registra en la auditoría.
 
 Datos del ciudadano:

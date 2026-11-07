@@ -145,4 +145,10 @@ LOGGING = {
     "filters": {"enmascarar": {"()": "core.enmascarado.FiltroEnmascarado"}},
     "handlers": {"console": {"class": "logging.StreamHandler", "filters": ["enmascarar"]}},
     "root": {"handlers": ["console"], "level": env("LOG_LEVEL", default="INFO")},
+    # httpx registra en INFO cada petición con su ruta y sus parámetros completos, que
+    # son lo que el ciudadano mandó a analizar. Solo avisos y errores.
+    "loggers": {
+        "httpx": {"level": "WARNING"},
+        "httpcore": {"level": "WARNING"},
+    },
 }
