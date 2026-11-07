@@ -1,0 +1,91 @@
+"""Función que usan las demás apps para dejar un evento de auditoría.
+
+    from core.auditoria import registrar_evento
+    registrar_evento(TipoEvento.DESTINO_BLOQUEADO, motivo="IP privada", detalle={"puerto": 443})
+"""
+import ipaddress
+import re
+
+from .enmascarado import enmascarar, normalizar
+from .models import EventoAuditoria, TipoEvento
+
+MAX_CLAVES_DETALLE = 10
+MAX_LARGO_TEXTO = 120
+MAX_LARGO_OBJETO = 100
+MAX_LARGO_MOTIVO = 200
+CLAVE_VALIDA = re.compile(r"[a-z][a-z0-9_]{0,39}")
+# Nombres que invitan a guardar justo lo que la auditoría no debe guardar.
+CLAVES_PROHIBIDAS = frozenset({
+    "ip", "ip_cliente", "direccion_ip", "url", "texto", "contenido", "correo",
+    "email", "telefono", "dni", "tarjeta", "cuenta", "captura",
+})
+IPV4_EN_TEXTO = re.compile(r"(?:\d{1,3}\.){3}\d{1,3}")
+
+
+def _es_ip_o_url(valor: str) -> bool:
+    """La IP del ciudadano y las URLs completas no se guardan nunca, ni enmascaradas.
+
+    DNI, tarjetas, cuentas, correos, teléfonos y montos sí se enmascaran: lo hace
+    _validar_texto con enmascarar().
+    """
+    if "://" in valor or IPV4_EN_TEXTO.search(valor):
+        return True
+    try:
+        ipaddress.ip_address(valor.strip())
+    except ValueError:
+        return False
+    return True
+
+
+def _validar_texto(campo: str, valor: str, maximo: int) -> str:
+    """Devuelve el texto enmascarado. Los mensajes de error nunca repiten el valor."""
+    if len(valor) > maximo:
+        raise ValueError(f"{campo} supera {maximo} caracteres")
+    # Se busca sobre el texto normalizado: "２０３.０.１１３.７" o una IP con caracteres
+    # invisibles en medio también es una IP.
+    valor = normalizar(valor)
+    if _es_ip_o_url(valor):
+        raise ValueError(f"{campo} trae una IP o una URL, que no se guardan")
+    return enmascarar(valor)
+
+
+def _validar_detalle(detalle: dict) -> dict:
+    if len(detalle) > MAX_CLAVES_DETALLE:
+        raise ValueError(f"detalle admite hasta {MAX_CLAVES_DETALLE} claves")
+    limpio = {}
+    for clave, valor in detalle.items():
+        if not isinstance(clave, str) or not CLAVE_VALIDA.fullmatch(clave):
+            raise ValueError("las claves de detalle son minúsculas con guion bajo")
+        if clave in CLAVES_PROHIBIDAS:
+            raise ValueError(f"detalle no admite la clave {clave!r}")
+        # bool antes que int: en Python True es un int.
+        if valor is None or isinstance(valor, (bool, int, float)):
+            limpio[clave] = valor
+        elif isinstance(valor, str):
+            limpio[clave] = _validar_texto(f"detalle[{clave!r}]", valor, MAX_LARGO_TEXTO)
+        else:
+            raise ValueError(f"detalle[{clave!r}] debe ser texto corto, número, booleano o None")
+    return limpio
+
+
+def registrar_evento(tipo, *, usuario=None, objeto="", motivo="", detalle=None):
+    """Guarda un evento de auditoría y lo devuelve.
+
+    usuario es la cuenta interna que actuó; un visitante anónimo cuenta como None.
+    objeto es solo un identificador ("catalogo.Dominio:42"). Los textos pasan por
+    enmascarar() antes de guardarse. Una IP o una URL levanta ValueError y el
+    evento no se guarda.
+    """
+    if tipo not in TipoEvento.values:
+        raise ValueError(f"tipo de evento desconocido: {tipo!r}")
+    detalle = {} if detalle is None else detalle
+    if not isinstance(detalle, dict):
+        raise ValueError("detalle debe ser un diccionario")
+    objeto = _validar_texto("objeto", objeto, MAX_LARGO_OBJETO)
+    motivo = _validar_texto("motivo", motivo, MAX_LARGO_MOTIVO)
+    detalle = _validar_detalle(detalle)
+    if usuario is not None and not getattr(usuario, "is_authenticated", False):
+        usuario = None
+    return EventoAuditoria.objects.create(
+        tipo=tipo, usuario=usuario, objeto=objeto, motivo=motivo, detalle=detalle,
+    )
