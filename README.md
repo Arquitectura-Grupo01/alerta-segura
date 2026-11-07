@@ -20,8 +20,9 @@ Implementado:
 - Celery configurado con Redis como broker, sin tareas definidas.
 - Caché compartida entre procesos (`config/settings/cache.py`): Redis en local y una tabla de PostgreSQL con tope de 5000 filas en Render. `scripts/entrypoint.sh` crea la tabla con `createcachetable` al arrancar. Los tests usan `LocMemCache`.
 - Imagen Docker multi-stage que se ejecuta con un usuario sin privilegios. En local y en el CI la aplicación entra a PostgreSQL con un rol sin superusuario.
+- Auditoría de solo agregar (`core/models.py`, `core/auditoria.py`): el modelo `EventoAuditoria` rechaza editar y borrar, también en bloque, y el admin lo muestra solo de lectura. Las demás apps registran con `registrar_evento(tipo, usuario=..., objeto=..., motivo=..., detalle=...)`, que rechaza IP, URLs, correos y números largos en esos campos. Todavía no hay trigger en PostgreSQL ni cadena de hashes.
 - Pipeline de GitHub Actions con tests, cobertura, análisis estático, auditoría de dependencias, detección de secretos, escaneo de la imagen, despliegue a Dev y Prod, smoke test y DAST.
-- 72 tests en `tests/` sobre los endpoints de salud, la página de inicio, la CSP y las demás cabeceras de seguridad, la política de salida y los settings.
+- 281 tests en `tests/` sobre los endpoints de salud, la página de inicio, la CSP y las demás cabeceras de seguridad, la política de salida, la caché, la auditoría y los settings.
 
 Planificado según el informe del Hito 1, sin código todavía:
 
