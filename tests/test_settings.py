@@ -38,6 +38,16 @@ def test_acepta_una_clave_que_empieza_con_dolar():
     assert salida == clave
 
 
+def test_prod_confia_en_dos_proxies_y_los_demas_ambientes_en_ninguno():
+    salida = _python(
+        "from config.settings import base, prod, dev, test; "
+        "print(prod.ENTRADA_PROXIES_CONFIABLES, base.ENTRADA_PROXIES_CONFIABLES, "
+        "dev.ENTRADA_PROXIES_CONFIABLES, test.ENTRADA_PROXIES_CONFIABLES)",
+        DATABASE_URL="sqlite://:memory:",
+    )
+    assert salida == "2 0 0 0"
+
+
 def test_prod_exige_tls_hacia_postgres():
     salida = _python(
         "from config.settings import prod; print(prod.DATABASES['default']['OPTIONS'])",

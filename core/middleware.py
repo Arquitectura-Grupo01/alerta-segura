@@ -1,4 +1,7 @@
 from django.conf import settings
+from django.http import HttpResponse
+
+from .entrada import MAX_BYTES_CUERPO
 
 # Cabeceras de seguridad con valor fijo. Son controles, no configuración: valen
 # igual en todos los ambientes y no se leen del entorno.
@@ -42,3 +45,31 @@ class CabecerasSeguridadMiddleware:
         if "Cache-Control" not in response.headers:
             response.headers["Cache-Control"] = "no-store"
         return response
+
+
+
+class LimiteDeTamanoMiddleware:
+    """Rechaza por su Content-Length una solicitud que no cabe, antes de leer el cuerpo.
+
+    Django no limita el tamaño total de los archivos subidos. Esto corta los de más de
+    5 MB sin leerlos. Un cuerpo más largo que su Content-Length no llega a la vista:
+    Django lee exactamente esa cantidad de bytes y ni un byte más.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        largo = request.META.get("CONTENT_LENGTH", "")
+        if largo:
+            try:
+                bytes_declarados = int(largo)
+            except ValueError:
+                bytes_declarados = -1
+            if bytes_declarados < 0:
+                return HttpResponse("Solicitud inválida.", status=400, content_type="text/plain")
+            if bytes_declarados > MAX_BYTES_CUERPO:
+                return HttpResponse(
+                    "La solicitud es demasiado grande.", status=413, content_type="text/plain",
+                )
+        return self.get_response(request)
