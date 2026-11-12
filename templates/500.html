@@ -1,0 +1,35 @@
+{% load static %}<!doctype html>
+{% comment %}
+  Página 500. No extiende base.html a propósito: Django la renderiza sin contexto ni
+  context processors, y el error que la provocó puede venir justamente de la base de
+  datos o de otra plantilla. No uses {% url %}, {% csrf_token %}, variables del contexto
+  ni includes aquí. El texto es fijo y nunca muestra el detalle del error.
+{% endcomment %}
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Alerta Segura: algo salió mal</title>
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#0A141B">
+  <meta name="color-scheme" content="dark">
+  <link rel="stylesheet" href="{% static 'css/sitio.css' %}">
+</head>
+<body>
+  <header class="cabecera">
+    <div class="contenedor cabecera-fila">
+      <a class="marca" href="/">Alerta Segura</a>
+    </div>
+  </header>
+  <main id="contenido">
+    <section class="pagina-error" aria-labelledby="titulo-error">
+      <div class="contenedor">
+        <p class="pagina-error-codigo mono">Error 500</p>
+        <h1 id="titulo-error">Algo salió mal de nuestro lado</h1>
+        <p class="pagina-error-texto">No pudimos completar lo que pediste y el problema no es tuyo. Intenta de nuevo en unos minutos.</p>
+        <a class="boton-analizar" href="/">Volver al inicio</a>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

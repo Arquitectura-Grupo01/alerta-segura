@@ -75,6 +75,8 @@ Django no impone la separación entre apps, así que la sostienen estos imports 
 - Prohibido `@csrf_exempt`.
 - Una respuesta de error nunca incluye el detalle de la excepción. Sigue el patrón de `/ready/`.
 - Ningún secreto, token ni credencial en código, tests o fixtures. gitleaks revisa todo el historial.
+- Todo endpoint que reciba datos del usuario o salga a internet por él lleva `@limitar(<política>)` de `core.entrada`, con las políticas definidas ahí (`ANALISIS`, `REPORTES`). Para la IP usa `core.entrada.ip_del_cliente`; nunca leas `X-Forwarded-For` por tu cuenta ni guardes la IP en claro.
+- Las páginas de error (`templates/400.html`, `403.html`, `404.html`, `429.html`, `500.html`) tienen texto fijo: no imprimas en ellas `request_path`, `exception` ni otra variable del contexto. `500.html` no extiende `base.html` ni usa `{% url %}` a propósito (Django la renderiza sin contexto); mantenla así.
 
 Conexiones salientes:
 - `httpx`, o cualquier cliente HTTP, solo se importa en `core/net.py`. Las demás apps, `inteligencia` incluida, usan las funciones de ese módulo. Así los controles se aplican en un solo lugar.

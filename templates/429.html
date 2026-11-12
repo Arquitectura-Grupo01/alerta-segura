@@ -1,0 +1,6 @@
+{% extends "error_base.html" %}
+
+{% block titulo %}Alerta Segura: demasiados intentos{% endblock %}
+{% block codigo %}Error 429{% endblock %}
+{% block titular %}Hiciste muchos análisis seguidos{% endblock %}
+{% block detalle %}Espera unos minutos y vuelve a intentarlo. Este límite protege el servicio para que todos puedan usarlo.{% endblock %}

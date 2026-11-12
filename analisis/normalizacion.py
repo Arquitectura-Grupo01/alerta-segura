@@ -47,6 +47,10 @@ class EnlaceNormalizado:
     dominio: str
     # Ruta de la URL, para buscar palabras sospechosas.
     ruta: str
+    # La URL que pide el navegador, con todos sus parámetros y sin usuario ni fragmento.
+    # Con ella se siguen las redirecciones: un acortador puede necesitar los parámetros
+    # que la clave de caché quita.
+    url_con_parametros: str
 
 
 def normalizar(enlace: str) -> EnlaceNormalizado:
@@ -108,12 +112,19 @@ def normalizar(enlace: str) -> EnlaceNormalizado:
         ]
         ruta = partes.path or "/"
         url = urlunsplit((esquema, host_url, ruta, urlencode(parametros), ""))
+        url_con_parametros = urlunsplit((esquema, host_url, ruta, partes.query, ""))
     except (ValueError, UnicodeError) as error:
         if isinstance(error, URLInvalida):
             raise
         raise URLInvalida("El formato del enlace no es válido.") from error
 
-    return EnlaceNormalizado(original=original, url=url, dominio=host.rstrip("."), ruta=ruta)
+    return EnlaceNormalizado(
+        original=original,
+        url=url,
+        dominio=host.rstrip("."),
+        ruta=ruta,
+        url_con_parametros=url_con_parametros,
+    )
 
 
 def normalizar_url(enlace: str) -> str:
