@@ -158,6 +158,22 @@ ACLARACION_SEGURO = (
     "cambiar."
 )
 
+NOTA_REDIRECCIONES = (
+    "Veces que el enlace pasa a otra dirección antes de llegar. Las seguimos nosotros y el "
+    "enlace nunca se abre en tu celular."
+)
+SIN_DESTINO = "No pudimos seguir el enlace"
+
+
+@dataclass(frozen=True)
+class Recorrido:
+    """Lo que pasó al seguir el enlace hasta la web donde termina."""
+
+    # Redirecciones seguidas; None si no se pudo llegar al destino.
+    saltos: int | None
+    # Web del enlace que pegó la persona, si el destino está en otra.
+    desde: str = ""
+
 
 @dataclass(frozen=True)
 class Explicacion:
@@ -171,8 +187,14 @@ class Explicacion:
     detalle: tuple[tuple[str, str, str], ...]
 
 
-def explicar(veredicto: Veredicto, dominio: str) -> Explicacion:
-    """Arma la explicación de un veredicto. `dominio` es el host que abre el navegador."""
+def explicar(
+    veredicto: Veredicto, dominio: str, recorrido: Recorrido | None = None
+) -> Explicacion:
+    """Arma la explicación de un veredicto.
+
+    `dominio` es la web donde termina el enlace en el navegador. Con `recorrido`, el
+    detalle técnico dice cuántas redirecciones hubo.
+    """
     return Explicacion(
         motivos=_motivos(veredicto, dominio),
         acciones=ACCIONES[veredicto.nivel],
@@ -182,7 +204,7 @@ def explicar(veredicto: Veredicto, dominio: str) -> Explicacion:
             for codigo in veredicto.senales.heuristicas
             if codigo in DETALLE_SENAL
         ),
-        detalle=_detalle(veredicto),
+        detalle=_redirecciones(recorrido) + _detalle(veredicto),
     )
 
 
@@ -278,6 +300,20 @@ def _estado_de_categorias(
         estados.append("No encontramos trucos en la dirección.")
 
     return estados
+
+
+def _redirecciones(recorrido: Recorrido | None) -> tuple[tuple[str, str, str], ...]:
+    if recorrido is None:
+        return ()
+    if recorrido.saltos is None:
+        valor = SIN_DESTINO
+    elif recorrido.saltos == 0:
+        valor = "Ninguna"
+    elif recorrido.desde:
+        valor = f"{recorrido.saltos}, desde {recorrido.desde}"
+    else:
+        valor = str(recorrido.saltos)
+    return (("Redirecciones", valor, NOTA_REDIRECCIONES),)
 
 
 def _detalle(veredicto: Veredicto) -> tuple[tuple[str, str, str], ...]:

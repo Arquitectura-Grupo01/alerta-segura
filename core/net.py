@@ -331,21 +331,38 @@ def _pedir_a_las_ips(cliente, metodo, url, ips, limite):
     return RespuestaSegura(RESULTADO_ERROR_DE_RED), None
 
 
-def pedir_url(url: str, *, metodo: str = "GET", transporte=None) -> RespuestaSegura:
+def pedir_url(
+    url: str,
+    *,
+    metodo: str = "GET",
+    max_redirecciones: int | None = None,
+    plazo_segundos: float | None = None,
+    transporte=None,
+) -> RespuestaSegura:
     """Pide una URL aplicando la política de salida y devuelve un RespuestaSegura.
 
     Cada destino, el inicial y los de las redirecciones, pasa por validar_url. Un destino
     bloqueado deja un evento de auditoría y el resultado dice "destino_bloqueado".
-    Solo GET y HEAD, sin cookies. transporte existe para los tests (httpx.MockTransport):
-    reemplaza la red, nunca la validación.
+    Solo GET y HEAD, sin cookies. max_redirecciones y plazo_segundos solo pueden bajar
+    los valores de la política, que son los que se usan si faltan: el analizador de URL
+    los usa para repartir sus 3 saltos y su tiempo entre varias llamadas. transporte
+    existe para los tests (httpx.MockTransport): reemplaza la red, nunca la validación.
     """
     metodo = metodo.upper()
     if metodo not in METODOS_PERMITIDOS:
         raise ValueError("pedir_url solo admite GET y HEAD")
-    limite = time.monotonic() + PLAZO_TOTAL_SEGUNDOS
+    if max_redirecciones is None:
+        max_redirecciones = MAX_REDIRECCIONES
+    if plazo_segundos is None:
+        plazo_segundos = PLAZO_TOTAL_SEGUNDOS
+    if not 0 <= max_redirecciones <= MAX_REDIRECCIONES:
+        raise ValueError(f"max_redirecciones va de 0 a {MAX_REDIRECCIONES}")
+    if not 0 < plazo_segundos <= PLAZO_TOTAL_SEGUNDOS:
+        raise ValueError(f"plazo_segundos va de más de 0 a {PLAZO_TOTAL_SEGUNDOS}")
+    limite = time.monotonic() + plazo_segundos
     actual = url
     with _crear_cliente(transporte, limite) as cliente:
-        for salto in range(MAX_REDIRECCIONES + 1):
+        for salto in range(max_redirecciones + 1):
             if time.monotonic() > limite:
                 return RespuestaSegura(RESULTADO_TIEMPO_AGOTADO, saltos=salto)
             try:
@@ -356,7 +373,7 @@ def pedir_url(url: str, *, metodo: str = "GET", transporte=None) -> RespuestaSeg
             respuesta, location = _pedir_a_las_ips(cliente, metodo, actual, ips, limite)
             if respuesta is not None:
                 return _con_saltos(respuesta, salto)
-            if salto == MAX_REDIRECCIONES:
+            if salto == max_redirecciones:
                 return RespuestaSegura(RESULTADO_DEMASIADAS_REDIRECCIONES, saltos=salto)
             try:
                 actual = urljoin(actual, location)

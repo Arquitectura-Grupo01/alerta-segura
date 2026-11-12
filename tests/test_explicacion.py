@@ -13,6 +13,9 @@ from motor.explicacion import (
     MINIMO_MOTIVOS,
     MOTIVOS_REGLA,
     MOTIVOS_SENAL,
+    NOTA_REDIRECCIONES,
+    SIN_DESTINO,
+    Recorrido,
     explicar,
     terminos_prohibidos,
 )
@@ -25,6 +28,8 @@ def _textos_para_la_persona():
     for acciones in ACCIONES.values():
         yield from acciones
     yield ACLARACION_SEGURO
+    yield NOTA_REDIRECCIONES
+    yield SIN_DESTINO
 
 
 def _combinaciones_de_senales():
@@ -153,3 +158,15 @@ def test_detalle_tecnico_explica_cada_termino():
     ]
     assert all(nota for _, _, nota in explicacion.detalle)
     assert explicacion.senales == (DETALLE_SENAL["acortador"],)
+
+
+@pytest.mark.parametrize(("recorrido", "valor"), [
+    (Recorrido(saltos=None), SIN_DESTINO),
+    (Recorrido(saltos=0), "Ninguna"),
+    (Recorrido(saltos=2), "2"),
+    (Recorrido(saltos=1, desde="bit.ly"), "1, desde bit.ly"),
+])
+def test_el_detalle_dice_cuantas_redirecciones_hubo(recorrido, valor):
+    detalle = explicar(calcular(Senales()), "ejemplo.com", recorrido).detalle
+    assert detalle[0] == ("Redirecciones", valor, NOTA_REDIRECCIONES)
+    assert len(detalle) == len(explicar(calcular(Senales()), "ejemplo.com").detalle) + 1

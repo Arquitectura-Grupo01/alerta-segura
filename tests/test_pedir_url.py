@@ -288,6 +288,25 @@ def test_a_la_cuarta_redireccion_se_detiene(monkeypatch):
     assert len(peticiones) == 4  # la quinta nunca se pide
 
 
+def test_quien_llama_puede_pedir_menos_redirecciones(monkeypatch):
+    resolver(monkeypatch, {"ok.example": ["8.8.8.8"]})
+    transporte, peticiones = _cadena(2)
+    respuesta = pedir_url("http://ok.example/r0", max_redirecciones=1, transporte=transporte)
+    assert (respuesta.resultado, respuesta.saltos) == (RESULTADO_DEMASIADAS_REDIRECCIONES, 1)
+    assert len(peticiones) == 2
+
+
+@pytest.mark.parametrize("opciones", [
+    {"max_redirecciones": net.MAX_REDIRECCIONES + 1},
+    {"max_redirecciones": -1},
+    {"plazo_segundos": net.PLAZO_TOTAL_SEGUNDOS + 1},
+    {"plazo_segundos": 0},
+])
+def test_los_limites_de_la_politica_solo_pueden_bajar(opciones):
+    with pytest.raises(ValueError):
+        pedir_url("http://ok.example/", **opciones)
+
+
 @pytest.mark.django_db
 def test_cada_salto_resuelve_su_propio_destino(monkeypatch):
     resolver(monkeypatch, {"uno.example": ["8.8.8.8"], "dos.example": ["10.0.0.9"]})
@@ -412,6 +431,16 @@ def test_un_servidor_que_gotea_bytes_se_corta_por_el_plazo_total(monkeypatch):
     transporte, _ = servidor({("lento.example", "/"): lento})
     inicio = time.monotonic()
     respuesta = pedir_url("http://lento.example/", transporte=transporte)
+    assert respuesta.resultado == RESULTADO_TIEMPO_AGOTADO
+    assert time.monotonic() - inicio < 2
+
+
+def test_quien_llama_puede_pedir_un_plazo_menor(monkeypatch):
+    resolver(monkeypatch, {"lento.example": ["8.8.8.8"]})
+    lento = httpx.Response(200, stream=Trozos([b"x"] * 100, pausa=0.1))
+    transporte, _ = servidor({("lento.example", "/"): lento})
+    inicio = time.monotonic()
+    respuesta = pedir_url("http://lento.example/", plazo_segundos=0.3, transporte=transporte)
     assert respuesta.resultado == RESULTADO_TIEMPO_AGOTADO
     assert time.monotonic() - inicio < 2
 

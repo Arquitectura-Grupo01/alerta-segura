@@ -24,13 +24,13 @@ Registro de lo que el equipo decidió y de lo que falta decidir. Una decisión d
 | Se descartan para el MVP las tareas 41 (fusionada con la 5), 45, 48, 49, 50 y 60 | Cambian el motor, necesitan tareas programadas o moderación, o tienen costo. Quedan como ideas en la tarea 61 | Equipo, 2026-10-30 |
 | De la tarea 3 se aceptan el 2FA obligatorio en GitHub, el MFA en Render y Neon y el *private vulnerability reporting*. Se descarta `CODEOWNERS` | Con despliegue automático, una cuenta tomada controla producción. Con tres integrantes, exigir un responsable por ruta frena más de lo que protege, y todo PR ya necesita la aprobación de otro integrante | Equipo, 2026-10-30 |
 | Los tres integrantes son administradores del repo | Todos configuran GitHub. A cambio, el 2FA es obligatorio en las tres cuentas | Equipo, 2026-10-30 |
+| Un dominio sin servidor RDAP, como los `.pe`, queda sin edad | El registro de IANA publicado el 2026-10-28 no tiene servidor RDAP para `.pe`, y WHOIS usa el puerto 43, que la política de salida bloquea | Tarea 16, 2026-11-12 |
 
 ## Pendientes
 
 | Decisión | Tarea | Recomendación |
 |---|---|---|
 | Umbral de AbuseIPDB para contar una detección | 20 | Empezar alto y ajustarlo con el set de regresión |
-| Edad de los dominios `.pe` sin RDAP | 16 | Verificar si el registro de `.pe` ofrece RDAP; si no, la edad queda no disponible |
 | Clave de PhishTank | 18 | Pedirla; si no llega, omitir la fuente |
 | Enviar URLs nuevas a VirusTotal o urlscan.io | 19 | No por defecto, porque expone tokens de las víctimas |
 | Límite por IP frente al CGNAT de las redes móviles | 12 | Medir los 429 en Prod antes de cambiarlo |
