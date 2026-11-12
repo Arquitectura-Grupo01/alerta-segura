@@ -1417,3 +1417,161 @@ svg {
   font-size: 1.125rem;
   line-height: 1.6;
 }
+
+/* Guía «Ya hice clic». Una columna de lectura: cada caso es un título y sus pasos. */
+.guia {
+  position: relative;
+  isolation: isolate;
+  padding-block: 112px 88px;
+}
+
+.guia::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 34rem;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(48rem 26rem at 10% -14%, rgba(var(--luz), 0.2), transparent 64%);
+}
+
+@media (min-width: 768px) {
+  .guia { padding-block: 152px 120px; }
+}
+
+.guia-cabecera,
+.guia-indice,
+.guia-caso { max-width: 44rem; }
+
+.guia h1 {
+  font-size: clamp(2.25rem, 1.4rem + 3.6vw, 4rem);
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 1.04;
+  text-wrap: balance;
+}
+
+.guia-intro {
+  margin-top: 24px;
+  font-size: 1.125rem;
+  line-height: 1.55;
+}
+
+.guia-aviso {
+  margin-top: 28px;
+  padding-top: 22px;
+  border-top: 1px solid var(--linea);
+}
+
+.guia-indice { margin-top: 56px; }
+
+.guia-rotulo {
+  color: var(--secundario);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.guia-indice ul {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--linea);
+}
+
+.guia-indice li { border-bottom: 1px solid var(--linea); }
+
+.guia-indice a {
+  display: flex;
+  align-items: center;
+  min-height: 56px;
+  padding: 10px 0;
+  color: var(--texto);
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.guia-indice a:hover { color: var(--cuerpo); }
+
+.guia-caso {
+  margin-top: 72px;
+  /* El título no queda bajo la cabecera fija al llegar desde el índice. */
+  scroll-margin-top: 96px;
+}
+
+.guia-caso h2 {
+  font-size: clamp(1.5rem, 1.2rem + 1.4vw, 2.125rem);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  text-wrap: balance;
+}
+
+.guia-caso > p { margin-top: 14px; }
+
+.pasos {
+  margin: 22px 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: paso;
+  border-top: 1px solid var(--linea);
+}
+
+.pasos li {
+  position: relative;
+  padding: 16px 0 16px 44px;
+  border-bottom: 1px solid var(--linea);
+  color: var(--texto);
+  line-height: 1.5;
+  counter-increment: paso;
+}
+
+.pasos li::before {
+  content: counter(paso);
+  position: absolute;
+  top: 17px;
+  left: 2px;
+  color: var(--secundario);
+  font-family: var(--mono);
+  font-size: 1rem;
+}
+
+.guia-nota {
+  color: var(--secundario);
+  font-size: 1rem;
+}
+
+.guia-lista {
+  display: grid;
+  gap: 8px;
+  margin: 18px 0 0;
+  padding-left: 1.2em;
+  color: var(--texto);
+}
+
+.guia-canales { margin: 22px 0 0; border-top: 1px solid var(--linea); }
+
+.guia-canales > div {
+  padding: 18px 0;
+  border-bottom: 1px solid var(--linea);
+}
+
+.guia-canales dt {
+  color: var(--texto);
+  font-weight: 600;
+}
+
+.guia-canales dd { margin: 6px 0 0; }
+
+.guia-caso a {
+  color: var(--texto);
+  text-underline-offset: 3px;
+}
+
+.guia-volver { margin-top: 72px; }
+
+.guia-volver .boton-analizar { width: 100%; text-decoration: none; }
+
+@media (min-width: 640px) {
+  .guia-volver .boton-analizar { width: auto; }
+}

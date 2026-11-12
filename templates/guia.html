@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block titulo %}Ya hice clic, di mis datos o pagué. Qué hacer ahora. Alerta Segura{% endblock %}
+{% block descripcion %}Pasos simples si abriste un enlace falso, diste tus claves, pagaste, instalaste una app o compartiste tu código de WhatsApp. No te pedimos ningún dato.{% endblock %}
+
+{% block contenido %}
+{# Esta página no pide ningún dato: no lleva formularios ni campos. #}
+{# Canales verificados el 2026-11-12 en el sitio de cada entidad:
+     WhatsApp, verificación en dos pasos y cuenta comprometida (faq.whatsapp.com).
+     Google Play Protect (support.google.com).
+     Yape, centro de ayuda (yape.com.pe).
+     INDECOPI, Reclama Virtual (enlinea.indecopi.gob.pe).
+     Policía Nacional: policia.gob.pe redirige a gob.pe/pnp.
+   Sin verificar, y por eso no están en la página: teléfonos de la DIVINDAT, de INDECOPI
+   y de la SBS, y un canal de reclamos de Plin. No agregar un número sin leerlo en el
+   sitio oficial de la entidad y anotar aquí la fecha. #}
+<article class="guia">
+  <div class="contenedor">
+    <header class="guia-cabecera">
+      <h1>¿Ya hiciste clic, diste tus datos o pagaste? <span class="tenue">Todavía puedes hacer algo.</span></h1>
+      <p class="guia-intro">Busca lo que te pasó y sigue los pasos en orden. Aquí no te pedimos ningún dato.</p>
+      <p class="guia-aviso"><b>Llama a tu banco con el número que está en tu tarjeta o en su app.</b> Nunca uses el número que vino en el mensaje.</p>
+    </header>
+
+    <nav class="guia-indice" aria-labelledby="indice-titulo">
+      <h2 class="guia-rotulo" id="indice-titulo">Qué te pasó</h2>
+      <ul>
+        <li><a href="#hice-clic">Hice clic en el enlace</a></li>
+        <li><a href="#di-mis-datos">Escribí mis datos o mis claves</a></li>
+        <li><a href="#pague">Pagué o transferí, también por Yape o Plin</a></li>
+        <li><a href="#instale-una-app">Instalé una app que me enviaron</a></li>
+        <li><a href="#codigo-whatsapp">Compartí el código de verificación de WhatsApp</a></li>
+      </ul>
+    </nav>
+
+    <section class="guia-caso" id="hice-clic" aria-labelledby="t-hice-clic">
+      <h2 id="t-hice-clic">Hice clic en el enlace</h2>
+      <p>Abrir la página casi nunca basta para que te roben. El riesgo está en lo que escribas o instales después.</p>
+      <ol class="pasos">
+        <li>Cierra la página sin escribir nada.</li>
+        <li>Si se descargó un archivo, no lo abras. Bórralo.</li>
+        <li>Si la página te hizo instalar algo, sigue los pasos de <a href="#instale-una-app">Instalé una app</a>.</li>
+        <li>Durante los próximos días, mira los movimientos de tus cuentas.</li>
+      </ol>
+    </section>
+
+    <section class="guia-caso" id="di-mis-datos" aria-labelledby="t-di-mis-datos">
+      <h2 id="t-di-mis-datos">Escribí mis datos o mis claves</h2>
+      <ol class="pasos">
+        <li>Cambia esa clave ahora. Entra tú mismo a la app o escribe la dirección oficial, sin usar el enlace que te llegó.</li>
+        <li>Si usas la misma clave en otros sitios, cámbiala también ahí.</li>
+        <li>Si diste los datos de tu tarjeta o tu clave del banco, llama a tu banco y pide que bloqueen la tarjeta y el acceso.</li>
+        <li>Revisa tus movimientos y avisa al banco de cualquiera que no reconozcas.</li>
+        <li>Activa la verificación en dos pasos en tu correo y en tus redes. Así una clave robada no alcanza para entrar.</li>
+      </ol>
+    </section>
+
+    <section class="guia-caso" id="pague" aria-labelledby="t-pague">
+      <h2 id="t-pague">Pagué o transferí, también por Yape o Plin</h2>
+      <p>Cada minuto cuenta. Mientras antes avises, más fácil es detener el pago.</p>
+      <ol class="pasos">
+        <li>Llama a tu banco ahora. Di que fue una estafa y pide que detengan la operación.</li>
+        <li>Pide el número de tu reclamo y anótalo.</li>
+        <li>Si pagaste con Yape, escribe a su WhatsApp oficial. El número está en el <a href="https://www.yape.com.pe/preguntas-frecuentes/temas-urgentes/cual-es-el-numero-de-contacto-de-yape" rel="noopener noreferrer">centro de ayuda de Yape</a>.</li>
+        <li>Si pagaste con Plin, reclama al banco desde cuya app hiciste el pago.</li>
+        <li><a href="#pruebas">Guarda las pruebas</a> y <a href="#denunciar">denuncia</a>.</li>
+      </ol>
+      <p class="guia-nota">Alerta Segura no puede recuperar tu dinero. Tu banco y la policía sí pueden actuar.</p>
+    </section>
+
+    <section class="guia-caso" id="instale-una-app" aria-labelledby="t-instale-una-app">
+      <h2 id="t-instale-una-app">Instalé una app que me enviaron</h2>
+      <p>Una app que llega por un enlace o por un archivo puede leer tus mensajes y ver lo que escribes.</p>
+      <ol class="pasos">
+        <li>Pon el celular en modo avión para cortarle la conexión.</li>
+        <li>Desinstala la app.</li>
+        <li>En Android, abre Play Store, toca tu foto, entra a Play Protect y analiza el celular. Google lo explica en <a href="https://support.google.com/googleplay/answer/2812853" rel="noopener noreferrer">su página de ayuda</a>.</li>
+        <li>Desde otro celular o computadora, cambia las claves de tu banco y de tu correo.</li>
+        <li>Llama a tu banco y cuenta que instalaste una app desconocida.</li>
+      </ol>
+    </section>
+
+    <section class="guia-caso" id="codigo-whatsapp" aria-labelledby="t-codigo-whatsapp">
+      <h2 id="t-codigo-whatsapp">Compartí el código de verificación de WhatsApp</h2>
+      <p>Con ese código de 6 dígitos otra persona puede abrir tu WhatsApp en su celular y escribir a tus contactos como si fueras tú.</p>
+      <ol class="pasos">
+        <li>Abre WhatsApp y registra tu número otra vez. Te llegará un código nuevo por SMS. Al ingresarlo, la otra persona pierde el acceso.</li>
+        <li>Si no puedes entrar, sigue la guía de WhatsApp para <a href="https://faq.whatsapp.com/1131652977717250" rel="noopener noreferrer">recuperar una cuenta comprometida</a>.</li>
+        <li>Activa la <a href="https://faq.whatsapp.com/1278661612895630" rel="noopener noreferrer">verificación en dos pasos</a> de WhatsApp.</li>
+        <li>Avisa a tu familia y amigos que no hagan caso a pedidos de dinero hechos desde tu número.</li>
+        <li>No compartas ese código con nadie más, tampoco con familiares.</li>
+      </ol>
+    </section>
+
+    <section class="guia-caso" id="pruebas" aria-labelledby="t-pruebas">
+      <h2 id="t-pruebas">Guarda las pruebas</h2>
+      <p>Las vas a necesitar para el reclamo en tu banco y para la denuncia. No borres el chat.</p>
+      <ul class="guia-lista">
+        <li>Capturas del mensaje y de la página.</li>
+        <li>El número, el correo o la cuenta desde donde te escribieron.</li>
+        <li>La fecha y la hora.</li>
+        <li>El monto y el número de la operación, si pagaste.</li>
+      </ul>
+    </section>
+
+    <section class="guia-caso" id="denunciar" aria-labelledby="t-denunciar">
+      <h2 id="t-denunciar">Dónde denunciar</h2>
+      <dl class="guia-canales">
+        <div>
+          <dt>Policía Nacional del Perú</dt>
+          <dd>Las estafas por internet las investiga la DIVINDAT, su división de delitos de alta tecnología. Sus canales están en la <a href="https://www.gob.pe/pnp" rel="noopener noreferrer">página oficial de la policía</a>.</dd>
+        </div>
+        <div>
+          <dt>INDECOPI</dt>
+          <dd>Si le compraste a una tienda o empresa que no cumplió, puedes reclamar en <a href="https://enlinea.indecopi.gob.pe/reclamavirtual/" rel="noopener noreferrer">Reclama Virtual</a>.</dd>
+        </div>
+      </dl>
+    </section>
+
+    <p class="guia-volver">
+      <a class="boton-analizar" href="{% url 'inicio' %}">Analizar un enlace<svg aria-hidden="true" focusable="false" width="18" height="18"><use href="#i-flecha"/></svg></a>
+    </p>
+  </div>
+</article>
+{% endblock %}

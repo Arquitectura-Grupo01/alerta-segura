@@ -30,8 +30,9 @@ def vista_mal_formada(request):
 
 
 urlpatterns = [
-    # Las páginas de error enlazan al inicio con {% url 'inicio' %}: la ruta tiene que existir.
+    # Las páginas de error enlazan al inicio y a la guía con {% url %}.
     path("", lambda request: HttpResponse("inicio"), name="inicio"),
+    path("guia/", lambda request: HttpResponse("guia"), name="guia"),
     path("falla/", vista_con_error),
     path("prohibida/", vista_prohibida),
     path("mal-formada/", vista_mal_formada),
