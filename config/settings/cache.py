@@ -12,6 +12,8 @@ TABLA_CACHE = "cache_alerta"
 # "default": al pasar su tope, la tabla borra filas, y miles de respuestas no deben
 # llevarse los contadores del rate limit.
 TABLA_CACHE_TECNICA = "cache_tecnica"
+# Los resultados de los análisis también van aparte, por el mismo motivo.
+TABLA_CACHE_RESULTADOS = "cache_resultados"
 # Tope de filas de la tabla en Neon. Al superarlo, Django borra 1 de cada
 # CULL_FREQUENCY entradas (aquí la tercera parte), así que la tabla no crece sin límite.
 MAX_ENTRIES = 5000
@@ -33,6 +35,11 @@ def construir_caches(backend, redis_url):
                 "LOCATION": TABLA_CACHE_TECNICA,
                 "OPTIONS": opciones,
             },
+            "resultados": {
+                "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+                "LOCATION": TABLA_CACHE_RESULTADOS,
+                "OPTIONS": opciones,
+            },
         }
     if backend == "redis":
         return {
@@ -44,6 +51,11 @@ def construir_caches(backend, redis_url):
                 "BACKEND": "django.core.cache.backends.redis.RedisCache",
                 "LOCATION": redis_url,
                 "KEY_PREFIX": "tecnica",
+            },
+            "resultados": {
+                "BACKEND": "django.core.cache.backends.redis.RedisCache",
+                "LOCATION": redis_url,
+                "KEY_PREFIX": "resultados",
             },
         }
     raise ImproperlyConfigured(f"CACHE_BACKEND debe ser 'redis' o 'db', no {backend!r}")

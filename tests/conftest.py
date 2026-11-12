@@ -8,9 +8,11 @@ def cache_limpia():
     de un test se arrastrarían al siguiente."""
     cache.clear()
     caches["tecnica"].clear()
+    caches["resultados"].clear()
     yield
     cache.clear()
     caches["tecnica"].clear()
+    caches["resultados"].clear()
 
 
 @pytest.fixture(autouse=True)
