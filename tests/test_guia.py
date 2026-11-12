@@ -94,7 +94,7 @@ def test_cada_anclaje_interno_de_la_guia_existe(html):
 
 def test_el_inicio_y_la_cabecera_enlazan_a_la_guia(client):
     inicio = client.get(reverse("inicio")).content.decode()
-    assert '<a href="/guia/">Ya hice clic</a>' in inicio
+    assert '<a href="/guia/"' in inicio
     for situacion in SITUACIONES:
         assert f'href="/guia/#{situacion}"' in inicio
 
@@ -109,3 +109,20 @@ def test_todo_resultado_desde_ten_cuidado_enlaza_a_la_guia(client, enlace):
     assert ">Seguro</h1>" not in resultado
     for situacion in SITUACIONES:
         assert f'href="/guia/#{situacion}"' in resultado
+
+
+def test_ningun_comentario_de_la_plantilla_llega_a_la_pagina(html):
+    # En Django, {# #} solo vale en una línea. Uno de varias líneas se imprime tal cual.
+    assert "{#" not in html and "#}" not in html
+    assert "{%" not in html and "verificados" not in html
+
+
+def test_la_guia_no_se_confunde_con_el_inicio(client, html):
+    inicio = client.get(reverse("inicio")).content.decode()
+    titulo = re.search(r"<h1>(.*?)</h1>", html, re.S).group(1)
+    assert titulo == "Qué hacer si ya hiciste clic, diste tus datos o pagaste"
+    assert titulo not in inicio
+    # La cabecera marca la guía como la página actual, y solo en la guía.
+    assert '<a href="/guia/" aria-current="page">Ya hice clic</a>' in html
+    assert "aria-current" not in inicio
+    assert '<p class="guia-ruta"><a href="/">Inicio</a>' in html

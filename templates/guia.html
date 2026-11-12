@@ -3,9 +3,12 @@
 {% block titulo %}Ya hice clic, di mis datos o pagué. Qué hacer ahora. Alerta Segura{% endblock %}
 {% block descripcion %}Pasos simples si abriste un enlace falso, diste tus claves, pagaste, instalaste una app o compartiste tu código de WhatsApp. No te pedimos ningún dato.{% endblock %}
 
+{% block guia_actual %} aria-current="page"{% endblock %}
+
 {% block contenido %}
 {# Esta página no pide ningún dato: no lleva formularios ni campos. #}
-{# Canales verificados el 2026-11-12 en el sitio de cada entidad:
+{% comment %}
+   Canales verificados el 2026-11-12 en el sitio de cada entidad:
      WhatsApp, verificación en dos pasos y cuenta comprometida (faq.whatsapp.com).
      Google Play Protect (support.google.com).
      Yape, centro de ayuda (yape.com.pe).
@@ -13,11 +16,13 @@
      Policía Nacional: policia.gob.pe redirige a gob.pe/pnp.
    Sin verificar, y por eso no están en la página: teléfonos de la DIVINDAT, de INDECOPI
    y de la SBS, y un canal de reclamos de Plin. No agregar un número sin leerlo en el
-   sitio oficial de la entidad y anotar aquí la fecha. #}
+   sitio oficial de la entidad y anotar aquí la fecha.
+{% endcomment %}
 <article class="guia">
   <div class="contenedor">
     <header class="guia-cabecera">
-      <h1>¿Ya hiciste clic, diste tus datos o pagaste? <span class="tenue">Todavía puedes hacer algo.</span></h1>
+      <p class="guia-ruta"><a href="{% url 'inicio' %}">Inicio</a><span aria-hidden="true">/</span>Guía</p>
+      <h1>Qué hacer si ya hiciste clic, diste tus datos o pagaste</h1>
       <p class="guia-intro">Busca lo que te pasó y sigue los pasos en orden. Aquí no te pedimos ningún dato.</p>
       <p class="guia-aviso"><b>Llama a tu banco con el número que está en tu tarjeta o en su app.</b> Nunca uses el número que vino en el mensaje.</p>
     </header>
