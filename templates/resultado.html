@@ -1,7 +1,9 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block titulo %}{{ nivel.texto }}. Resultado del análisis en Alerta Segura{% endblock %}
 {% block cabeza %}<meta name="robots" content="noindex">{% endblock %}
+{% block scripts %}{% if aviso %}<script src="{% static 'js/resultado.js' %}" defer></script>{% endif %}{% endblock %}
 
 {% block contenido %}
 {# Orden fijo de la tarea 27: nivel, motivos, qué hacer y detalle técnico colapsado. #}
@@ -27,6 +29,13 @@
           {% for accion in explicacion.acciones %}<li>{{ accion }}</li>
           {% endfor %}
         </ol>
+        {% if aviso %}
+        {# Aparece solo si el navegador puede compartir o copiar: lo decide resultado.js. #}
+        <div class="avisar" data-avisar hidden>
+          <button type="button" class="boton-avisar" data-texto="{{ aviso }}">Avisar a un familiar</button>
+          <p class="avisar-estado" data-estado role="status"></p>
+        </div>
+        {% endif %}
         <details class="detalle">
           <summary>Ver detalle técnico</summary>
           <dl class="detalle-lista">

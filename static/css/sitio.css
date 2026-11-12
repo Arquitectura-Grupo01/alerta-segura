@@ -1292,6 +1292,40 @@ svg {
 
 .detalle-senales p { margin-top: 8px; }
 
+/* Botón secundario del resultado. Solo borde, para no competir con el nivel. */
+.avisar { margin-top: 22px; }
+
+.boton-avisar {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 18px;
+  border: 1px solid var(--linea);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--texto);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.boton-avisar:hover {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.avisar-estado {
+  margin: 10px 0 0;
+  color: var(--secundario);
+  font-size: 0.9375rem;
+}
+
+.avisar-estado:empty { display: none; }
+
+@media (min-width: 560px) {
+  .boton-avisar { width: auto; }
+}
+
 .resultado-otro { margin-top: 32px; }
 
 .resultado-otro .boton-analizar,

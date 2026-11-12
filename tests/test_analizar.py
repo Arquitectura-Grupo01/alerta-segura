@@ -15,7 +15,7 @@ from django.urls import reverse
 from analisis import destino, edad, views
 from analisis.destino import Destino
 from core import net
-from motor.explicacion import ACLARACION_SEGURO, SIN_DESTINO, explicar
+from motor.explicacion import ACLARACION_SEGURO, SIN_DESTINO, aviso_para_compartir, explicar
 from motor.riesgo import Nivel, Senales, calcular
 
 # Un enlace por nivel alcanzable sin fuentes externas. Seguro no se alcanza: la cobertura es baja.
@@ -92,7 +92,10 @@ def test_el_resultado_no_se_indexa(client):
 
 def test_el_resultado_no_usa_scripts_ni_estilos_en_linea(client):
     html = _analizar(client, ENLACE_PELIGRO_ALTO).content.decode()
-    assert not re.search(r"<script", html, flags=re.IGNORECASE)
+    # El único script es un archivo propio; ninguno va escrito en la página.
+    assert re.findall(r"<script[^>]*>", html, flags=re.IGNORECASE) == [
+        '<script src="/static/js/resultado.js" defer>'
+    ]
     assert not re.search(r"<style", html, flags=re.IGNORECASE)
     assert not re.search(r"\sstyle=", html, flags=re.IGNORECASE)
     assert not re.search(r"\son[a-z]+=", html, flags=re.IGNORECASE)
@@ -241,3 +244,25 @@ def test_si_la_direccion_de_destino_no_se_puede_leer_se_analiza_el_enlace_pegado
     html = _analizar(client, ENLACE_TEN_CUIDADO).content.decode()
     assert f"<dd>{SIN_DESTINO}</dd>" in html
     assert '<span class="oculto">Web que abre el enlace: </span>ejemplo.com</p>' in html
+
+
+def test_desde_ten_cuidado_se_puede_avisar_a_un_familiar_sin_mandar_el_enlace(client):
+    html = _analizar(client, "https://bcp.com.pe@sitio-falso.com/login?token=abc").content.decode()
+    boton = re.search(r'<div class="avisar" data-avisar hidden>\s*<button[^>]*>', html).group(0)
+    # El dominio va desactivado y el aviso no trae la ruta, el token ni un enlace.
+    assert "Lleva a sitio-falso[.]com." in boton
+    assert "token" not in boton and "http" not in boton and "/login" not in boton
+    assert "salió «Peligroso»" in boton
+
+
+def test_el_aviso_no_existe_en_seguro_y_dice_el_nivel_y_la_accion():
+    senales = Senales(heuristicas=(), edad_dias=800, marca=0, fuentes=0)
+    assert aviso_para_compartir(calcular(senales), "ejemplo.com") == ""
+    assert "data-avisar" not in _renderizar(senales)
+
+    alto = calcular(Senales(fuentes=100, fuentes_con_deteccion=2))
+    assert aviso_para_compartir(alto, "2001:db8::1") == (
+        "Revisé en Alerta Segura un enlace que me llegó y salió «Peligro alto». "
+        "Lleva a 2001[:]db8[:][:]1. Si te llega a ti, no abras el enlace, no respondas y "
+        "borra el mensaje."
+    )

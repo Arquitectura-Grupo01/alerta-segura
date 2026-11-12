@@ -149,6 +149,9 @@ CELERY_TASK_ALWAYS_EAGER = env.bool("CELERY_EAGER", default=False)
 CELERY_TASK_EAGER_PROPAGATES = True
 CELERY_TASK_TIME_LIMIT = 30
 
+# Claves de las fuentes externas. Una fuente sin clave se omite.
+SAFE_BROWSING_API_KEY = env("SAFE_BROWSING_API_KEY", default="")
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,

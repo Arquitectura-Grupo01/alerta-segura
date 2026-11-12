@@ -8,11 +8,16 @@ from analisis.heuristicas import HEURISTICAS
 from motor.explicacion import (
     ACCIONES,
     ACLARACION_SEGURO,
+    AVISO,
     DETALLE_SENAL,
+    ESTADO_FUENTE,
+    FUENTES_CAIDAS,
+    FUENTES_SIN_DATOS,
     MAXIMO_MOTIVOS,
     MINIMO_MOTIVOS,
     MOTIVOS_REGLA,
     MOTIVOS_SENAL,
+    NOTA_FUENTE,
     NOTA_REDIRECCIONES,
     SIN_DESTINO,
     Recorrido,
@@ -29,6 +34,11 @@ def _textos_para_la_persona():
         yield from acciones
     yield ACLARACION_SEGURO
     yield NOTA_REDIRECCIONES
+    yield AVISO
+    yield NOTA_FUENTE
+    yield FUENTES_SIN_DATOS
+    yield FUENTES_CAIDAS
+    yield from ESTADO_FUENTE.values()
     yield SIN_DESTINO
 
 
@@ -170,3 +180,23 @@ def test_el_detalle_dice_cuantas_redirecciones_hubo(recorrido, valor):
     detalle = explicar(calcular(Senales()), "ejemplo.com", recorrido).detalle
     assert detalle[0] == ("Redirecciones", valor, NOTA_REDIRECCIONES)
     assert len(detalle) == len(explicar(calcular(Senales()), "ejemplo.com").detalle) + 1
+
+
+def test_el_detalle_dice_el_estado_de_cada_fuente_consultada():
+    consultadas = (("Lista A", "deteccion"), ("Lista B", "fallo"))
+    detalle = explicar(calcular(Senales(fuentes=100, fuentes_con_deteccion=1)), "x.com",
+                       fuentes=consultadas).detalle
+    assert detalle[-2:] == (
+        ("Lista A", ESTADO_FUENTE["deteccion"], NOTA_FUENTE),
+        ("Lista B", ESTADO_FUENTE["fallo"], NOTA_FUENTE),
+    )
+
+
+@pytest.mark.parametrize(("consultadas", "motivo"), [
+    ((("Lista A", "fallo"), ("Lista B", "fallo")), FUENTES_CAIDAS),
+    ((("Lista A", "desconocido"), ("Lista B", "fallo")), FUENTES_SIN_DATOS),
+])
+def test_una_fuente_caida_o_sin_datos_se_dice_y_no_cuenta_como_limpia(consultadas, motivo):
+    explicacion = explicar(calcular(Senales()), "ejemplo.com", fuentes=consultadas)
+    assert motivo in explicacion.motivos
+    assert "Todavía no la buscamos en listas de seguridad." not in explicacion.motivos

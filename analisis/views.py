@@ -7,7 +7,7 @@ from analisis.heuristicas import HEURISTICAS, detectar_senales
 from analisis.normalizacion import LARGO_MAXIMO, URLInvalida, normalizar
 from core.entrada import ANALISIS, limitar
 from inteligencia.fuentes import consultar_fuentes, fuentes_activas, resumir
-from motor.explicacion import Recorrido, explicar
+from motor.explicacion import Recorrido, aviso_para_compartir, explicar
 from motor.riesgo import Nivel, Senales, calcular
 
 
@@ -44,7 +44,13 @@ def analizar(request):
         encontradas.update(detectar_senales(final))
     dominio = final.dominio if final is not None else enlace.dominio
     # A las fuentes va la dirección de destino sin parámetros de rastreo.
-    fuentes = resumir(consultar_fuentes(fuentes_activas(), (final or enlace).url))
+    activas = fuentes_activas()
+    respuestas = consultar_fuentes(activas, (final or enlace).url)
+    fuentes = resumir(respuestas)
+    estado_de_fuentes = tuple(
+        (fuente.titulo or fuente.nombre, respuesta.estado.value)
+        for fuente, respuesta in zip(activas, respuestas, strict=True)
+    )
     senales = Senales(
         tipo_entrada="enlace",
         # En el orden del registro, para que los motivos salgan siempre en el mismo orden.
@@ -61,8 +67,9 @@ def analizar(request):
     contexto = {
         "veredicto": veredicto,
         "nivel": veredicto.nivel,
-        "explicacion": explicar(veredicto, dominio, recorrido),
+        "explicacion": explicar(veredicto, dominio, recorrido, estado_de_fuentes),
         "dominio": dominio,
+        "aviso": aviso_para_compartir(veredicto, dominio),
         "mostrar_guia": veredicto.nivel >= Nivel.TEN_CUIDADO,
     }
     respuesta = render(request, "resultado.html", contexto)

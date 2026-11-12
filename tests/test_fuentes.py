@@ -370,4 +370,5 @@ def test_el_analisis_termina_aunque_todas_las_fuentes_fallen(client, monkeypatch
     html = res.content.decode()
     assert res.status_code == 200
     assert 'id="resultado-nivel">Ten cuidado</h1>' in html
-    assert "Todavía no la buscamos en listas de seguridad." in html
+    assert "No pudimos consultar los servicios de seguridad." in html
+    assert html.count("<dd>No respondió</dd>") == 2

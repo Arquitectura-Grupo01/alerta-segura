@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import Enum
 
+from django.conf import settings
 from django.core.cache import cache, caches
 from django.db import connections
 
@@ -77,6 +78,8 @@ class Fuente:
     """Base de un adaptador. La subclase define `nombre` y escribe `_consultar`."""
 
     nombre = ""
+    # Nombre que ve la persona en el detalle técnico.
+    titulo = ""
     plazo_segundos = PLAZO_POR_FUENTE_SEGUNDOS
     # Consultas por día que permite el proveedor; None si no hay tope.
     cuota_diaria: int | None = None
@@ -183,13 +186,23 @@ class Fuente:
 def fuentes_activas() -> list[Fuente]:
     """Las fuentes que se consultan en cada análisis.
 
-    Los adaptadores de las tareas 18 a 20 se agregan aquí. Una fuente que no está
-    disponible, por ejemplo sin clave, se omite.
+    Una fuente que no está disponible, por ejemplo sin clave, se omite sin tocar el motor.
     """
+    global _FUENTES
+    if _FUENTES is None:
+        _FUENTES = _crear_fuentes()
     return [fuente for fuente in _FUENTES if fuente.disponible()]
 
 
-_FUENTES: list[Fuente] = []
+def _crear_fuentes() -> list[Fuente]:
+    # Se importan aquí: cada adaptador importa este módulo.
+    from inteligencia.safe_browsing import SafeBrowsing
+
+    return [SafeBrowsing(settings.SAFE_BROWSING_API_KEY)]
+
+
+# Se crean en la primera consulta, cuando los settings ya están cargados.
+_FUENTES: list[Fuente] | None = None
 
 
 def consultar_fuentes(

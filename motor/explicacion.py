@@ -164,6 +164,22 @@ NOTA_REDIRECCIONES = (
 )
 SIN_DESTINO = "No pudimos seguir el enlace"
 
+AVISO = (
+    "Revisé en Alerta Segura un enlace que me llegó y salió «{nivel}». Lleva a {dominio}. "
+    "Si te llega a ti, {accion}"
+)
+
+# Estado de cada servicio de seguridad consultado, con los códigos de `inteligencia`.
+ESTADO_FUENTE = MappingProxyType({
+    "deteccion": "La tiene reportada",
+    "sin_detecciones": "La revisó hace menos de un día y no encontró nada",
+    "desconocido": "No tiene datos de esta web",
+    "fallo": "No respondió",
+})
+NOTA_FUENTE = "Servicio de seguridad que consultamos. Si no responde, no cuenta como web limpia."
+FUENTES_SIN_DATOS = "Los servicios de seguridad que consultamos no tienen datos de esta web."
+FUENTES_CAIDAS = "No pudimos consultar los servicios de seguridad."
+
 
 @dataclass(frozen=True)
 class Recorrido:
@@ -188,15 +204,19 @@ class Explicacion:
 
 
 def explicar(
-    veredicto: Veredicto, dominio: str, recorrido: Recorrido | None = None
+    veredicto: Veredicto,
+    dominio: str,
+    recorrido: Recorrido | None = None,
+    fuentes: tuple[tuple[str, str], ...] = (),
 ) -> Explicacion:
     """Arma la explicación de un veredicto.
 
     `dominio` es la web donde termina el enlace en el navegador. Con `recorrido`, el
-    detalle técnico dice cuántas redirecciones hubo.
+    detalle técnico dice cuántas redirecciones hubo. `fuentes` trae el nombre y el
+    estado de cada servicio de seguridad consultado.
     """
     return Explicacion(
-        motivos=_motivos(veredicto, dominio),
+        motivos=_motivos(veredicto, dominio, fuentes),
         acciones=ACCIONES[veredicto.nivel],
         aclaracion=ACLARACION_SEGURO if veredicto.nivel == Nivel.SEGURO else None,
         senales=tuple(
@@ -204,7 +224,25 @@ def explicar(
             for codigo in veredicto.senales.heuristicas
             if codigo in DETALLE_SENAL
         ),
-        detalle=_redirecciones(recorrido) + _detalle(veredicto),
+        detalle=_redirecciones(recorrido) + _detalle(veredicto) + tuple(
+            (nombre, ESTADO_FUENTE[estado], NOTA_FUENTE) for nombre, estado in fuentes
+        ),
+    )
+
+
+def aviso_para_compartir(veredicto: Veredicto, dominio: str) -> str:
+    """Texto que la persona manda a un familiar. Vacío en Seguro: no hay de qué avisar.
+
+    El dominio va desactivado (`ejemplo[.]com`) para que el chat no lo vuelva un enlace,
+    y nunca lleva la dirección del resultado.
+    """
+    if veredicto.nivel == Nivel.SEGURO:
+        return ""
+    accion = ACCIONES[veredicto.nivel][0]
+    return AVISO.format(
+        nivel=veredicto.nivel.texto,
+        dominio=dominio.replace(".", "[.]").replace(":", "[:]"),
+        accion=accion[:1].lower() + accion[1:],
     )
 
 
@@ -217,7 +255,9 @@ def terminos_prohibidos(texto: str) -> list[str]:
     ]
 
 
-def _motivos(veredicto: Veredicto, dominio: str) -> tuple[str, ...]:
+def _motivos(
+    veredicto: Veredicto, dominio: str, fuentes: tuple[tuple[str, str], ...] = ()
+) -> tuple[str, ...]:
     datos = {"dominio": dominio, "edad": _edad(veredicto.senales.edad_dias)}
     reemplazadas = {
         reemplazada
@@ -244,7 +284,7 @@ def _motivos(veredicto: Veredicto, dominio: str) -> tuple[str, ...]:
     else:
         candidatos = textos_senales + textos_reglas
     contar_edad = not EDAD_YA_CONTADA & set(del_nivel)
-    candidatos += _estado_de_categorias(veredicto, datos, contar_edad)
+    candidatos += _estado_de_categorias(veredicto, datos, contar_edad, fuentes)
     motivos = _sin_repetir(candidatos)
 
     # Si faltan motivos, las reglas de nivel menor también explican el resultado.
@@ -263,7 +303,10 @@ def _sin_repetir(textos: list[str]) -> list[str]:
 
 
 def _estado_de_categorias(
-    veredicto: Veredicto, datos: dict[str, str], contar_edad: bool
+    veredicto: Veredicto,
+    datos: dict[str, str],
+    contar_edad: bool,
+    consultadas: tuple[tuple[str, str], ...] = (),
 ) -> list[str]:
     """Un motivo por categoría aplicable, para decir también lo que no se pudo revisar."""
     valores = veredicto.valores
@@ -271,8 +314,11 @@ def _estado_de_categorias(
 
     if FUENTES in valores:
         fuentes = valores[FUENTES]
-        if fuentes is None:
+        if fuentes is None and not consultadas:
             estados.append("Todavía no la buscamos en listas de seguridad.")
+        elif fuentes is None:
+            caidas = all(estado == "fallo" for _, estado in consultadas)
+            estados.append(FUENTES_CAIDAS if caidas else FUENTES_SIN_DATOS)
         elif fuentes == 0:
             estados.append("Las listas de seguridad que consultamos no la tienen reportada.")
         elif veredicto.senales.fuentes_con_deteccion == 0:
