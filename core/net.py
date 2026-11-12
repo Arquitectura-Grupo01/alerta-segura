@@ -10,9 +10,11 @@ import ipaddress
 import logging
 import socket
 import time
+import zlib
 from dataclasses import dataclass, field
 from urllib.parse import urljoin, urlsplit
 
+import httpcore
 import httpx
 
 logger = logging.getLogger(__name__)
@@ -144,9 +146,74 @@ class _SinCookies(http.cookiejar.CookiePolicy):
         return False
 
 
-def _crear_cliente(transporte):
+# --- Plazo total ------------------------------------------------------------
+# httpx solo tiene timeouts por operación. Un servidor que manda las cabeceras de a un
+# byte nunca los dispara y retiene la solicitud por horas. Estas clases acotan cada
+# conexión, lectura y escritura al tiempo que le queda a la solicitud.
+
+def _acotar(timeout, limite):
+    restante = limite - time.monotonic()
+    if restante <= 0:
+        raise httpcore.ReadTimeout("Se agotó el plazo total de la solicitud")
+    return restante if timeout is None else min(timeout, restante)
+
+
+class _FlujoConPlazo(httpcore.NetworkStream):
+    def __init__(self, flujo, limite):
+        self._flujo = flujo
+        self._limite = limite
+
+    def read(self, max_bytes, timeout=None):
+        return self._flujo.read(max_bytes, _acotar(timeout, self._limite))
+
+    def write(self, buffer, timeout=None):
+        self._flujo.write(buffer, _acotar(timeout, self._limite))
+
+    def close(self):
+        self._flujo.close()
+
+    def start_tls(self, ssl_context, server_hostname=None, timeout=None):
+        flujo = self._flujo.start_tls(ssl_context, server_hostname, _acotar(timeout, self._limite))
+        return _FlujoConPlazo(flujo, self._limite)
+
+    def get_extra_info(self, info):
+        return self._flujo.get_extra_info(info)
+
+
+class _RedConPlazo(httpcore.NetworkBackend):
+    def __init__(self, limite):
+        self._red = httpcore.SyncBackend()
+        self._limite = limite
+
+    def connect_tcp(self, host, port, timeout=None, local_address=None, socket_options=None):
+        flujo = self._red.connect_tcp(
+            host, port, _acotar(timeout, self._limite), local_address, socket_options,
+        )
+        return _FlujoConPlazo(flujo, self._limite)
+
+    def sleep(self, seconds):
+        self._red.sleep(seconds)
+
+
+class _TransporteConPlazo(httpx.HTTPTransport):
+    """Transporte de httpx que corta la solicitud cuando vence el plazo total."""
+
+    def __init__(self, limite):
+        super().__init__(verify=True, trust_env=False)
+        # HTTPTransport no deja elegir la red de httpcore, así que se cambia su pool por
+        # uno con _RedConPlazo. Si httpx cambia esto, falla el test del servidor que
+        # gotea las cabeceras.
+        self._pool = httpcore.ConnectionPool(
+            ssl_context=httpx.create_ssl_context(trust_env=False),
+            max_keepalive_connections=0,
+            network_backend=_RedConPlazo(limite),
+        )
+
+
+def _crear_cliente(transporte, limite):
     return httpx.Client(
-        transport=transporte,
+        # transporte solo llega desde los tests (httpx.MockTransport).
+        transport=transporte or _TransporteConPlazo(limite),
         follow_redirects=False,  # las redirecciones las sigue pedir_url, validando cada salto
         trust_env=False,  # HTTP_PROXY y similares no pueden desviar el tráfico
         timeout=httpx.Timeout(TIMEOUT_CONEXION_SEGUNDOS),
@@ -154,7 +221,8 @@ def _crear_cliente(transporte):
         # nombre en la misma IP reutilizaría una conexión TLS validada para el primero.
         limits=httpx.Limits(max_keepalive_connections=0),
         cookies=http.cookiejar.CookieJar(policy=_SinCookies()),
-        headers={"User-Agent": USER_AGENT},
+        # Solo gzip: es lo único que _leer_cuerpo sabe descomprimir con tope.
+        headers={"User-Agent": USER_AGENT, "Accept-Encoding": "gzip"},
         verify=True,
     )
 
@@ -181,6 +249,36 @@ def _auditar_bloqueo(categoria: str, salto: int) -> None:
         logger.exception("No se pudo registrar el destino bloqueado en la auditoría")
 
 
+def _leer_cuerpo(respuesta, limite):
+    """Lee el cuerpo hasta MAX_BYTES_RESPUESTA ya descomprimidos. Devuelve (cuerpo, resultado).
+
+    Con gzip no se usa iter_bytes: httpx descomprime cada trozo entero antes de
+    entregarlo, y 500 bytes con gzip dentro de gzip ocupan cientos de MB. Se leen los
+    bytes crudos y se descomprime aquí con tope. Solo se acepta gzip, que es lo que se pide.
+    """
+    codificacion = respuesta.headers.get("content-encoding", "").strip().lower()
+    if codificacion in ("gzip", "x-gzip"):
+        descompresor = zlib.decompressobj(16 + zlib.MAX_WBITS)
+        trozos = respuesta.iter_raw()
+    elif codificacion in ("", "identity"):
+        # Sin codificación, httpx no descomprime nada: iter_bytes da los bytes crudos.
+        descompresor = None
+        trozos = respuesta.iter_bytes()
+    else:
+        # br, deflate o varias capas ("gzip, gzip"): no se pidieron y no se leen.
+        return b"", RESULTADO_ERROR_DE_RED
+    cuerpo = bytearray()
+    for trozo in trozos:
+        if time.monotonic() > limite:
+            return b"", RESULTADO_TIEMPO_AGOTADO
+        if descompresor is not None:
+            trozo = descompresor.decompress(trozo, MAX_BYTES_RESPUESTA + 1 - len(cuerpo))
+        cuerpo.extend(trozo)
+        if len(cuerpo) > MAX_BYTES_RESPUESTA:
+            return bytes(cuerpo[:MAX_BYTES_RESPUESTA]), RESULTADO_RESPUESTA_GRANDE
+    return bytes(cuerpo), RESULTADO_OK
+
+
 def _pedir_a_una_ip(cliente, metodo, url, ip, limite):
     """Pide url a una IP ya validada. Devuelve (respuesta, None) o (None, location)."""
     partes = urlsplit(url)
@@ -199,39 +297,34 @@ def _pedir_a_una_ip(cliente, metodo, url, ip, limite):
     ) as respuesta:
         if respuesta.status_code in CODIGOS_DE_REDIRECCION and "location" in respuesta.headers:
             return None, respuesta.headers["location"]
-        cuerpo = bytearray()
-        resultado = RESULTADO_OK
+        cuerpo, resultado = b"", RESULTADO_OK
         if metodo != "HEAD":
-            # iter_bytes entrega los bytes ya descomprimidos: el tope se cuenta sobre
-            # lo que de verdad ocupa memoria, no sobre lo que viajó por la red.
-            for trozo in respuesta.iter_bytes():
-                if time.monotonic() > limite:
-                    return RespuestaSegura(RESULTADO_TIEMPO_AGOTADO), None
-                cuerpo.extend(trozo)
-                if len(cuerpo) > MAX_BYTES_RESPUESTA:
-                    del cuerpo[MAX_BYTES_RESPUESTA:]
-                    resultado = RESULTADO_RESPUESTA_GRANDE
-                    break
+            cuerpo, resultado = _leer_cuerpo(respuesta, limite)
+            if resultado in (RESULTADO_TIEMPO_AGOTADO, RESULTADO_ERROR_DE_RED):
+                return RespuestaSegura(resultado), None
         return RespuestaSegura(
             resultado,
             codigo_http=respuesta.status_code,
             url_final=url,
-            cuerpo=bytes(cuerpo),
+            cuerpo=cuerpo,
             encabezados={k.lower(): v for k, v in respuesta.headers.items()},
         ), None
 
 
 def _pedir_a_las_ips(cliente, metodo, url, ips, limite):
-    """Prueba las IPs validadas en orden; solo reintenta si no se pudo conectar."""
+    """Prueba las IPs validadas, IPv4 primero; solo reintenta si no se pudo conectar."""
     ultimo_fallo = None
-    for ip in ips[:MAX_IPS_POR_DESTINO]:
+    # En orden alfabético muchas IPv6 quedan antes que las IPv4 ("2600:..." < "52...").
+    # Sin salida IPv6, los tres intentos se gastaban sin probar ninguna IPv4.
+    for ip in sorted(ips, key=lambda ip: ":" in ip)[:MAX_IPS_POR_DESTINO]:
         try:
             return _pedir_a_una_ip(cliente, metodo, url, ip, limite)
         except (httpx.ConnectError, httpx.ConnectTimeout) as exc:
             ultimo_fallo = exc
         except httpx.TimeoutException:
             return RespuestaSegura(RESULTADO_TIEMPO_AGOTADO), None
-        except (httpx.HTTPError, UnicodeError):
+        except (httpx.HTTPError, httpx.InvalidURL, UnicodeError, zlib.error):
+            # InvalidURL: httpx rechaza, por ejemplo, un carácter de control en la ruta.
             return RespuestaSegura(RESULTADO_ERROR_DE_RED), None
     if isinstance(ultimo_fallo, httpx.ConnectTimeout):
         return RespuestaSegura(RESULTADO_TIEMPO_AGOTADO), None
@@ -251,7 +344,7 @@ def pedir_url(url: str, *, metodo: str = "GET", transporte=None) -> RespuestaSeg
         raise ValueError("pedir_url solo admite GET y HEAD")
     limite = time.monotonic() + PLAZO_TOTAL_SEGUNDOS
     actual = url
-    with _crear_cliente(transporte) as cliente:
+    with _crear_cliente(transporte, limite) as cliente:
         for salto in range(MAX_REDIRECCIONES + 1):
             if time.monotonic() > limite:
                 return RespuestaSegura(RESULTADO_TIEMPO_AGOTADO, saltos=salto)

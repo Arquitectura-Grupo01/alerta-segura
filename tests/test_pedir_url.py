@@ -1,6 +1,9 @@
 import gzip
 import socket
+import threading
 import time
+import tracemalloc
+import zlib
 from pathlib import Path
 
 import httpx
@@ -118,6 +121,28 @@ def test_si_una_ip_no_conecta_prueba_la_siguiente_ya_validada(monkeypatch):
     respuesta = pedir_url("http://ok.example/", transporte=httpx.MockTransport(manejar))
     assert respuesta.resultado == RESULTADO_OK
     assert vistas == ["1.1.1.1", "8.8.8.8"]
+
+
+def test_prueba_las_ipv4_antes_que_las_ipv6(monkeypatch):
+    ips = ["2606:4700::1", "2606:4700::2", "2606:4700::3", "52.0.0.1"]
+    resolver(monkeypatch, {"doble.example": ips})
+    vistas = []
+
+    def manejar(peticion):
+        vistas.append(peticion.url.host)
+        return httpx.Response(200)
+
+    respuesta = pedir_url("http://doble.example/", transporte=httpx.MockTransport(manejar))
+    assert respuesta.resultado == RESULTADO_OK
+    assert vistas == ["52.0.0.1"]
+
+
+def test_una_url_con_un_caracter_de_control_es_un_error_de_red(monkeypatch):
+    resolver(monkeypatch, {"ok.example": ["8.8.8.8"]})
+    transporte, peticiones = servidor({})
+    respuesta = pedir_url("http://ok.example/a\x7fb", transporte=transporte)
+    assert respuesta.resultado == RESULTADO_ERROR_DE_RED
+    assert peticiones == []
 
 
 @pytest.mark.parametrize("error,esperado", [
@@ -330,6 +355,44 @@ def test_2_mb_descomprimidos_cortan_la_respuesta(monkeypatch):
     assert len(respuesta.cuerpo) == MAX_BYTES_RESPUESTA
 
 
+def _gzip_de_ceros(megas):
+    compresor = zlib.compressobj(9, zlib.DEFLATED, 16 + zlib.MAX_WBITS)
+    bloque = bytes(1024 * 1024)
+    return b"".join([compresor.compress(bloque) for _ in range(megas)] + [compresor.flush()])
+
+
+def test_una_bomba_gzip_se_corta_sin_llenar_la_memoria(monkeypatch):
+    resolver(monkeypatch, {"ok.example": ["8.8.8.8"]})
+    comprimido = _gzip_de_ceros(100)
+    # Trozos de 64 KB, como los entrega la red. Cada uno se descomprime en unos 64 MB.
+    trozos = [comprimido[i:i + 65536] for i in range(0, len(comprimido), 65536)]
+    respuesta_http = httpx.Response(
+        200, headers={"Content-Encoding": "gzip"}, stream=Trozos(trozos),
+    )
+    transporte, peticiones = servidor({("ok.example", "/"): respuesta_http})
+    tracemalloc.start()
+    respuesta = pedir_url("http://ok.example/", transporte=transporte)
+    _, pico = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+    assert respuesta.resultado == RESULTADO_RESPUESTA_GRANDE
+    assert len(respuesta.cuerpo) == MAX_BYTES_RESPUESTA
+    assert pico < 8 * MAX_BYTES_RESPUESTA
+    assert peticiones[0].headers["accept-encoding"] == "gzip"
+
+
+@pytest.mark.parametrize("codificacion", ["gzip, gzip", "br", "deflate"])
+def test_una_codificacion_que_no_se_pidio_no_se_lee(monkeypatch, codificacion):
+    resolver(monkeypatch, {"ok.example": ["8.8.8.8"]})
+    # 500 bytes con gzip dentro de gzip se descomprimen en cientos de MB.
+    cuerpo = gzip.compress(gzip.compress(bytes(10 * 1024 * 1024)))
+    respuesta_http = httpx.Response(
+        200, headers={"Content-Encoding": codificacion}, stream=Trozos([cuerpo]),
+    )
+    transporte, _ = servidor({("ok.example", "/"): respuesta_http})
+    respuesta = pedir_url("http://ok.example/", transporte=transporte)
+    assert (respuesta.resultado, respuesta.cuerpo) == (RESULTADO_ERROR_DE_RED, b"")
+
+
 @pytest.mark.parametrize("largo,esperado", [
     (MAX_BYTES_RESPUESTA, RESULTADO_OK),
     (MAX_BYTES_RESPUESTA + 1, RESULTADO_RESPUESTA_GRANDE),
@@ -351,6 +414,44 @@ def test_un_servidor_que_gotea_bytes_se_corta_por_el_plazo_total(monkeypatch):
     respuesta = pedir_url("http://lento.example/", transporte=transporte)
     assert respuesta.resultado == RESULTADO_TIEMPO_AGOTADO
     assert time.monotonic() - inicio < 2
+
+
+def _servidor_que_gotea_cabeceras(puerto, segundos):
+    """Servidor real en 127.0.0.1 que manda las cabeceras de a un byte cada 0,2 s."""
+    escucha = socket.socket()
+    escucha.bind(("127.0.0.1", 0))
+    escucha.listen(1)
+    escucha.settimeout(5)
+    puerto.append(escucha.getsockname()[1])
+    try:
+        conexion, _ = escucha.accept()
+        with conexion:
+            conexion.recv(4096)
+            conexion.sendall(b"HTTP/1.1 200 OK\r\nX-Goteo: ")
+            fin = time.monotonic() + segundos
+            while time.monotonic() < fin:
+                conexion.sendall(b"a")
+                time.sleep(0.2)
+    except OSError:
+        pass  # el cliente cortó la conexión, que es lo esperado
+    finally:
+        escucha.close()
+
+
+def test_un_servidor_que_gotea_las_cabeceras_se_corta_por_el_plazo_total(monkeypatch):
+    # Cada byte llega antes del timeout de lectura de 2 s, así que solo el plazo total
+    # puede cortar. Usa la red de verdad: MockTransport no pasa por la red de httpcore.
+    puerto = []
+    hilo = threading.Thread(target=_servidor_que_gotea_cabeceras, args=(puerto, 6), daemon=True)
+    hilo.start()
+    while not puerto:
+        time.sleep(0.01)
+    monkeypatch.setattr(net, "validar_url", lambda url: ["127.0.0.1"])
+    monkeypatch.setattr(net, "PLAZO_TOTAL_SEGUNDOS", 1)
+    inicio = time.monotonic()
+    respuesta = pedir_url(f"http://lento.example:{puerto[0]}/")
+    assert respuesta.resultado == RESULTADO_TIEMPO_AGOTADO
+    assert time.monotonic() - inicio < 3
 
 
 # --- Método, cookies y cliente ---------------------------------------------
@@ -418,6 +519,7 @@ def test_httpx_solo_se_importa_en_core_net():
     for app in aplicaciones:
         for archivo in (BASE_DIR / app).rglob("*.py"):
             texto = archivo.read_text(encoding="utf-8")
-            if "import httpx" in texto or "from httpx" in texto:
+            if any(f"{forma} {cliente}" in texto
+                   for forma in ("import", "from") for cliente in ("httpx", "httpcore")):
                 importan.append(archivo.relative_to(BASE_DIR).as_posix())
     assert importan == ["core/net.py"]
