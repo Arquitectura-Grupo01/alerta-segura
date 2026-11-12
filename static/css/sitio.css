@@ -1294,13 +1294,15 @@ svg {
 
 .resultado-otro { margin-top: 32px; }
 
-.resultado-otro .boton-analizar {
+.resultado-otro .boton-analizar,
+.pagina-error .boton-analizar {
   width: 100%;
   text-decoration: none;
 }
 
 @media (min-width: 640px) {
-  .resultado-otro .boton-analizar { width: auto; }
+  .resultado-otro .boton-analizar,
+  .pagina-error .boton-analizar { width: auto; }
 }
 
 .oculto {
@@ -1363,7 +1365,6 @@ svg {
   margin: 0 0 12px;
   color: var(--secundario);
   font-size: 0.9375rem;
-  letter-spacing: 0.04em;
 }
 
 .pagina-error h1 {
@@ -1381,28 +1382,4 @@ svg {
   color: var(--cuerpo);
   font-size: 1.125rem;
   line-height: 1.6;
-}
-
-.boton-inicio {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 48px;
-  padding-inline: 22px;
-  border: 1px solid var(--linea);
-  border-radius: 999px;
-  background: var(--superficie);
-  color: var(--texto);
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.boton-inicio:hover { border-color: var(--secundario); }
-
-.boton-inicio svg {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
 }
