@@ -1,13 +1,18 @@
 import ipaddress
 import time
+from datetime import timedelta
 from unittest import mock
 
 import pytest
 from django.core.cache import cache
+from django.core.cache.backends import db as cache_db
+from django.core.management import call_command
+from django.http import HttpResponse
 from django.test import RequestFactory
 from django.urls import reverse
 
 from analisis import views as vistas_analisis
+from config.settings.cache import construir_caches
 from core import entrada, net
 from core.entrada import (
     ANALISIS,
@@ -181,6 +186,22 @@ def test_el_contador_se_reinicia_al_vencer_la_ventana(client):
     assert [vista(pedir).status_code for _ in range(3)] == [200, 200, 429]
     time.sleep(1.2)
     assert vista(pedir).status_code == 200
+
+
+@pytest.mark.django_db
+def test_con_la_cache_de_render_la_ventana_no_se_acorta(settings, monkeypatch):
+    # DatabaseCache.incr guardaba con la vigencia por defecto de 300 s: tras 400 s sin
+    # solicitudes, el contador volvía a cero y la IP tenía otros 30 análisis.
+    settings.CACHES = construir_caches("db", "redis://no-se-usa")
+    call_command("createcachetable", verbosity=0)
+    vista = limitar(Politica("prueba_db", 2, 600))(lambda request: HttpResponse("ok"))
+    pedir = peticion(REMOTE_ADDR=IP_A)
+    assert [vista(pedir).status_code for _ in range(2)] == [200, 200]
+    # Pasan 400 s: DatabaseCache lee la hora con time.time al guardar y con tz_now al leer.
+    reloj, ahora = time.time, cache_db.tz_now
+    monkeypatch.setattr(time, "time", lambda: reloj() + 400)
+    monkeypatch.setattr(cache_db, "tz_now", lambda: ahora() + timedelta(seconds=400))
+    assert vista(pedir).status_code == 429
 
 
 def test_las_politicas_no_cambian_sin_revision():
