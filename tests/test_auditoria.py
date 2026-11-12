@@ -1,5 +1,6 @@
 import pytest
 from django.contrib.auth.models import AnonymousUser
+from django.db import IntegrityError, transaction
 from django.db.models import ProtectedError
 from django.urls import reverse
 
@@ -84,6 +85,22 @@ def test_borrar_o_actualizar_en_bloque_falla(evento):
     assert EventoAuditoria.objects.get(pk=evento.pk).motivo == "Dominio oficial agregado"
 
 
+def test_un_evento_nuevo_con_el_id_de_otro_no_lo_sobrescribe(evento):
+    copia = EventoAuditoria(pk=evento.pk, tipo=TipoEvento.CAMBIO_REGLAS, motivo="Editado")
+    with pytest.raises(IntegrityError), transaction.atomic():
+        copia.save()
+    assert EventoAuditoria.objects.get(pk=evento.pk).motivo == "Dominio oficial agregado"
+
+
+def test_bulk_create_que_actualiza_conflictos_falla(evento):
+    copia = EventoAuditoria(pk=evento.pk, tipo=TipoEvento.CAMBIO_REGLAS, motivo="Editado")
+    with pytest.raises(EventoInmutable):
+        EventoAuditoria.objects.bulk_create(
+            [copia], update_conflicts=True, unique_fields=["id"], update_fields=["motivo"],
+        )
+    assert EventoAuditoria.objects.get(pk=evento.pk).motivo == "Dominio oficial agregado"
+
+
 def test_no_se_borra_una_cuenta_con_eventos(evento, analista):
     with pytest.raises(ProtectedError):
         analista.delete()
@@ -100,6 +117,8 @@ def test_no_se_borra_una_cuenta_con_eventos(evento, analista):
     {"destino": "203.0.113.7"},
     {"destino": "conecto a 203.0.113.7 y fallo"},
     {"destino": "2001:db8::1"},
+    {"destino": "conecto a 2001:db8::1 y fallo"},
+    {"destino": "[2001:db8::7]:443"},
     {"contacto": "persona@ejemplo.invalid"},
     {"documento": "DNI 45678912"},
     {"tarjeta_texto": "4111 1111 1111 1111"},
@@ -128,12 +147,28 @@ def test_el_detalle_acepta_numeros_booleanos_y_none():
 @pytest.mark.parametrize("campo,valor", [
     ("objeto", "http://ejemplo.invalid/"),
     ("objeto", "x" * 101),
+    ("objeto", "Dominio de Juan Pérez"),
     ("motivo", "correo persona@ejemplo.invalid"),
     ("motivo", "x" * 201),
 ])
 def test_objeto_y_motivo_tambien_se_validan(campo, valor):
     with pytest.raises(ValueError):
         registrar_evento(TipoEvento.CAMBIO_REGLAS, **{campo: valor})
+
+
+@pytest.mark.parametrize("objeto", [
+    "core.net",
+    "catalogo.Dominio:42",
+    "analisis.Analisis:3f2b1c9e-41d4-4716-a716-446655440000",
+])
+def test_objeto_guarda_identificadores_tal_cual(objeto):
+    evento = registrar_evento(TipoEvento.INVALIDACION, objeto=objeto)
+    assert EventoAuditoria.objects.get(pk=evento.pk).objeto == objeto
+
+
+def test_una_hora_o_una_palabra_hexadecimal_no_cuentan_como_ip():
+    evento = registrar_evento(TipoEvento.FALLO_SESION, motivo="Fallo a las 12:30 en cafe:beef")
+    assert evento.motivo == "Fallo a las 12:30 en cafe:beef"
 
 
 def test_el_detalle_debe_ser_un_diccionario():

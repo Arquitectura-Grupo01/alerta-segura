@@ -19,6 +19,11 @@ CLAVES_PROHIBIDAS = frozenset({
     "email", "telefono", "dni", "tarjeta", "cuenta", "captura",
 })
 IPV4_EN_TEXTO = re.compile(r"(?:\d{1,3}\.){3}\d{1,3}")
+# Tramos que podrían ser una IPv6 dentro de un texto ("conecto a 2001:db8::1").
+TRAMO_IP = re.compile(r"[0-9A-Fa-f:.]{2,}")
+# objeto es un identificador, "app.Modelo:id" o un módulo como "core.net". El id puede
+# ser un número o un UUID. Por eso no pasa por la heurística de datos personales.
+IDENTIFICADOR = re.compile(r"[a-z][a-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)*(?::[A-Za-z0-9-]{1,64})?")
 DIGITOS_LARGOS = re.compile(r"\d{8,}")  # DNI, teléfono, tarjeta, cuenta
 SEPARADORES = re.compile(r"[ -]")
 
@@ -33,13 +38,31 @@ def _parece_dato_personal(valor: str) -> bool:
     if "://" in valor or "@" in valor:
         return True
     # Sin espacios ni guiones, para que "4111 1111 1111 1111" cuente como 16 dígitos.
-    if IPV4_EN_TEXTO.search(valor) or DIGITOS_LARGOS.search(SEPARADORES.sub("", valor)):
+    if DIGITOS_LARGOS.search(SEPARADORES.sub("", valor)):
         return True
-    try:
-        ipaddress.ip_address(valor.strip())
-    except ValueError:
-        return False
-    return True
+    return _contiene_ip(valor)
+
+
+def _contiene_ip(valor: str) -> bool:
+    """True si el texto trae una IPv4 o una IPv6, sola o en medio de una frase."""
+    if IPV4_EN_TEXTO.search(valor):
+        return True
+    for tramo in TRAMO_IP.findall(valor):
+        if ":" not in tramo:
+            continue
+        try:
+            ipaddress.ip_address(tramo.rstrip("."))
+        except ValueError:
+            continue
+        return True
+    return False
+
+
+def _validar_objeto(objeto: str) -> None:
+    if len(objeto) > MAX_LARGO_OBJETO:
+        raise ValueError(f"objeto supera {MAX_LARGO_OBJETO} caracteres")
+    if objeto and not IDENTIFICADOR.fullmatch(objeto):
+        raise ValueError("objeto debe ser un identificador como catalogo.Dominio:42")
 
 
 def _validar_texto(campo: str, valor: str, maximo: int) -> None:
@@ -79,7 +102,7 @@ def registrar_evento(tipo, *, usuario=None, objeto="", motivo="", detalle=None):
     detalle = {} if detalle is None else detalle
     if not isinstance(detalle, dict):
         raise ValueError("detalle debe ser un diccionario")
-    _validar_texto("objeto", objeto, MAX_LARGO_OBJETO)
+    _validar_objeto(objeto)
     _validar_texto("motivo", motivo, MAX_LARGO_MOTIVO)
     _validar_detalle(detalle)
     if usuario is not None and not getattr(usuario, "is_authenticated", False):
