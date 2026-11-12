@@ -47,6 +47,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "core.middleware.CabecerasSeguridadMiddleware",
+    "core.middleware.LimiteDeTamanoMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -130,6 +131,16 @@ CSRF_COOKIE_HTTPONLY = True
 # sitio debe leerlos: ZAP lo marca como mala configuración entre dominios (10098).
 WHITENOISE_ALLOW_ALL_ORIGINS = False
 
+# Un formulario sin archivos no pasa de 128 KB (el campo del enlace tiene 2048 caracteres,
+# y un texto enmascarable 20 000). Django lo rechaza con 400 al leer el cuerpo. Los archivos
+# de más de 5 MB los corta core.middleware.LimiteDeTamanoMiddleware.
+DATA_UPLOAD_MAX_MEMORY_SIZE = 128 * 1024
+
+# Cuántos proxies confiables hay delante de la app, para sacar la IP del cliente de
+# X-Forwarded-For (core/entrada.py). 0 ignora la cabecera: en dev y en test cualquiera
+# podría escribirla. prod.py lo fija según la topología de Render.
+ENTRADA_PROXIES_CONFIABLES = 0
+
 # --- Celery -----------------------------------------------------------------
 # En Render Free no existen background workers. CELERY_EAGER=True ejecuta las
 # tareas dentro del proceso web (degradación documentada, ver guía paso 07).
@@ -138,9 +149,26 @@ CELERY_TASK_ALWAYS_EAGER = env.bool("CELERY_EAGER", default=False)
 CELERY_TASK_EAGER_PROPAGATES = True
 CELERY_TASK_TIME_LIMIT = 30
 
+# Claves de las fuentes externas. Una fuente sin clave se omite.
+SAFE_BROWSING_API_KEY = env("SAFE_BROWSING_API_KEY", default="")
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    # Todo mensaje pasa por el enmascarado antes de escribirse (core/enmascarado.py).
+    # Antes, las claves de API de las fuentes externas se cambian por [CLAVE].
+    "filters": {
+        "claves": {"()": "inteligencia.claves.FiltroClaves"},
+        "enmascarar": {"()": "core.enmascarado.FiltroEnmascarado"},
+    },
+    "handlers": {
+        "console": {"class": "logging.StreamHandler", "filters": ["claves", "enmascarar"]},
+    },
     "root": {"handlers": ["console"], "level": env("LOG_LEVEL", default="INFO")},
+    # httpx registra en INFO cada petición con su ruta y sus parámetros completos, que
+    # son lo que el ciudadano mandó a analizar. Solo avisos y errores.
+    "loggers": {
+        "httpx": {"level": "WARNING"},
+        "httpcore": {"level": "WARNING"},
+    },
 }

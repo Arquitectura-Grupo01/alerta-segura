@@ -35,6 +35,13 @@ def test_usuario_en_url_lleva_al_host_real():
     assert enlace.url == "https://sitio-falso.com/login"
 
 
+def test_la_url_para_seguir_el_enlace_conserva_los_parametros():
+    # Un acortador puede necesitar los parámetros que la clave de caché quita.
+    enlace = normalizar("HTTPS://Usuario@Ejemplo.PE\\r?id=1&utm_source=x#arriba")
+    assert enlace.url == "https://ejemplo.pe/r?id=1"
+    assert enlace.url_con_parametros == "https://ejemplo.pe/r?id=1&utm_source=x"
+
+
 def test_rechaza_enlace_vacio():
     with pytest.raises(URLInvalida):
         normalizar_url("")

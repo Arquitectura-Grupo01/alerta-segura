@@ -6,22 +6,30 @@ Las reglas de contribución, para personas y agentes de IA, están en [AGENTS.md
 
 ## Estado actual
 
-El repositorio contiene la base del sistema y el pipeline. La lógica de análisis todavía no tiene código.
+El repositorio contiene la base del sistema, el pipeline y un primer análisis de enlaces, todavía sin fuentes externas, catálogo de marcas ni caché de resultados.
 
 Implementado:
 
+- Análisis de enlaces (`analisis/` y `motor/`). `/analizar` lee el enlace como lo lee el navegador y lo sigue desde el servidor con `pedir_url`, hasta 3 redirecciones en total contando las de `<meta http-equiv="refresh">` y la cabecera `Refresh`. Revisa con heurísticas locales la dirección pegada y la de destino, y busca por RDAP la edad de las dos webs. Manda la más nueva; un dominio sin RDAP, como los `.pe`, un acortador o un alojamiento compartido como netlify.app no dan edad. `motor` calcula el nivel y lo explica con 3 a 5 motivos. Sin fuentes externas la cobertura no llega a 70 % y el resultado nunca es Seguro.
+- Interfaz común de las fuentes externas (`inteligencia/fuentes.py`). Cada proveedor será una subclase de `Fuente` que responde detección, sin detecciones, desconocido o falló. Sin detecciones exige un análisis del proveedor de las últimas 24 h; si es más viejo, cuenta como desconocido. La clase base pone el circuit breaker, que se abre al tercer fallo seguido y reintenta a los 5 minutos, la cuota diaria y el presupuesto global por hora. `consultar_fuentes` las llama en paralelo con un plazo total, y el análisis sigue aunque fallen todas. Las respuestas crudas van a una caché técnica aparte, 24 h como máximo, y `inteligencia/claves.py` quita las claves de API de los logs. El detalle técnico del resultado dice el estado de cada fuente consultada.
+- Google Safe Browsing v5 (`inteligencia/safe_browsing.py`), la primera fuente. Se consulta por prefijo de hash: a Google llegan 4 bytes del SHA-256 de cada forma de la dirección y nunca la URL. Es una lista de bloqueo, así que una dirección que no figura queda como desconocida y no como limpia. Se activa al definir `SAFE_BROWSING_API_KEY`; sin la clave se omite. Licencia: gratis solo para uso no comercial. Cuota: 10 000 consultas al día por proyecto. La respuesta en JSON (`alt=json`) falta probarla con una clave real.
+- Botón «Avisar a un familiar» en el resultado, desde Ten cuidado (`static/js/resultado.js`). Abre el menú de compartir del celular, o copia el texto donde no existe, con el nivel, el dominio desactivado (`ejemplo[.]com`) y la primera acción. Nunca comparte el enlace.
 - `/health/` responde si el proceso está vivo y devuelve el ambiente y el commit desplegado. `/ready/` confirma que la aplicación alcanza la base de datos.
-- `core/net.py` contiene la política de salida a internet. `validar_url` exige `http` o `https` y puerto 80 o 443, y rechaza el host si alguna de sus IP no es pública: redes privadas, loopback, link-local, metadatos de nube, CGNAT, multicast o IPv4 dentro de IPv6. También fija el máximo de redirecciones, el timeout y el tamaño de respuesta que usará el analizador. Solo valida; todavía no hace conexiones.
+- `templates/400.html`, `403.html`, `403_csrf.html`, `404.html`, `429.html` y `500.html` son las páginas de error, en español sencillo, con el diseño del sitio y un enlace al inicio. Ninguna muestra trazas, rutas ni el mensaje de la excepción. Las cuatro primeras extienden `error_base.html`; la 500 es independiente porque Django la renderiza sin contexto y la causa del error puede ser la base de datos.
+- `core/entrada.py` es la capa de entrada. `limitar` pone un tope por IP a `/analizar` (30 análisis cada 10 minutos) y responde 429 con `Retry-After` antes de resolver DNS o abrir conexiones. La IP sale de `X-Forwarded-For` según `ENTRADA_PROXIES_CONFIABLES` (2 en producción, 0 en los demás ambientes), se agrupa por /64 en IPv6 y solo se guarda como HMAC con expiración. `consumir_presupuesto_externo` limita las consultas a servicios externos por hora. `LimiteDeTamanoMiddleware` rechaza con 413 las solicitudes de más de 5 MB y con 400 un `Content-Length` inválido, y Django corta con 400 los formularios de más de 128 KB.
+- `core/net.py` contiene la política de salida a internet. `validar_url` exige `http` o `https` y puerto 80 o 443, y rechaza el host si alguna de sus IP no es pública: redes privadas, loopback, link-local, metadatos de nube, CGNAT, multicast o IPv4 dentro de IPv6. `pedir_url` es la única función que sale a internet y el único lugar donde se importa `httpx`: valida cada destino, se conecta a la IP ya validada con el `Host` y el SNI originales, sigue hasta 3 redirecciones validando cada salto, corta la conexión a los 2 s, la solicitud completa a los 10 s aunque el servidor mande las cabeceras de a un byte, y la respuesta a los 2 MB ya descomprimidos. Quien la llama puede bajar el máximo de redirecciones y el plazo, nunca subirlos. Solo acepta gzip y lo descomprime con tope. Solo GET y HEAD, sin cookies, sin credenciales de la URL y sin leer proxies del entorno. Cada destino bloqueado deja un evento de auditoría sin host ni IP, y `httpx` no escribe las URLs pedidas en el log.
 - Cabecera Content-Security-Policy en todas las respuestas (`core/middleware.py`), sin scripts ni estilos en línea.
 - Cabeceras de seguridad fijas en todas las respuestas (`core/middleware.py`): Permissions-Policy, que solo deja la cámara del propio sitio, Cross-Origin-Opener-Policy, Cross-Origin-Embedder-Policy y Cross-Origin-Resource-Policy. Toda respuesta sin política de caché propia sale con `Cache-Control: no-store`, y los estáticos no llevan `Access-Control-Allow-Origin`.
 - La cookie de CSRF es HttpOnly. El JavaScript propio no la lee: si hace un POST, toma el token del formulario.
 - Settings por ambiente (`dev`, `test`, `prod`) leídos de variables de entorno. `prod` activa la redirección a HTTPS, cookies `Secure`, HSTS, `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy` y TLS obligatorio hacia PostgreSQL.
 - Admin de Django en una ruta configurable.
 - Celery configurado con Redis como broker, sin tareas definidas.
-- Caché compartida entre procesos (`config/settings/cache.py`): Redis en local y una tabla de PostgreSQL con tope de 5000 filas en Render. `scripts/entrypoint.sh` crea la tabla con `createcachetable` al arrancar. Los tests usan `LocMemCache`.
+- Caché compartida entre procesos (`config/settings/cache.py`): Redis en local y una tabla de PostgreSQL con tope de 5000 filas en Render. La caché técnica de las fuentes externas va en otra tabla, para que sus respuestas no desplacen a los contadores del rate limit. `scripts/entrypoint.sh` crea la tabla con `createcachetable` al arrancar. Los tests usan `LocMemCache`.
 - Imagen Docker multi-stage que se ejecuta con un usuario sin privilegios. En local y en el CI la aplicación entra a PostgreSQL con un rol sin superusuario.
+- Auditoría de solo agregar (`core/models.py`, `core/auditoria.py`): el modelo `EventoAuditoria` rechaza editar y borrar, también en bloque, y el admin lo muestra solo de lectura. Las demás apps registran con `registrar_evento(tipo, usuario=..., objeto=..., motivo=..., detalle=...)`, que enmascara los textos y rechaza IP y URLs. Todavía no hay trigger en PostgreSQL ni cadena de hashes.
+- Enmascarado de datos personales (`core/enmascarado.py`): `enmascarar(texto)` reemplaza de forma irreversible tarjetas, CCI, cuentas, teléfonos, DNI, correos y montos por marcadores como `[DNI]`. Normaliza con NFKC y quita caracteres invisibles para que no se esquive, corta el texto a 20 000 caracteres y usa expresiones sin cuantificadores anidados. `FiltroEnmascarado` lo aplica a todo mensaje de log, a sus argumentos y a las trazas, y `registrar_evento` lo aplica a lo que guarda.
 - Pipeline de GitHub Actions con tests, cobertura, análisis estático, auditoría de dependencias, detección de secretos, escaneo de la imagen, despliegue a Dev y Prod, smoke test y DAST.
-- 72 tests en `tests/` sobre los endpoints de salud, la página de inicio, la CSP y las demás cabeceras de seguridad, la política de salida y los settings.
+- 580 tests en `tests/` sobre los endpoints de salud, la página de inicio, la CSP y las demás cabeceras de seguridad, la política de salida, la capa de entrada, las páginas de error, la caché, la auditoría, el enmascarado, las conexiones salientes, el análisis de enlaces, las fuentes externas y los settings.
 
 Planificado según el informe del Hito 1, sin código todavía:
 
@@ -41,13 +49,13 @@ Monolito modular en Django 5.2: una sola aplicación, una sola imagen Docker y s
 | App | Responsabilidad | Estado |
 |---|---|---|
 | `core` | Capa de entrada (validación, rate limit, CSRF, CSP), caché de resultados, auditoría, salud y validación de destinos de red | `/health/`, `/ready/`, `net.py` y la CSP |
-| `analisis` | Orquesta cada análisis y contiene los analizadores de URL, imagen y texto | Sin implementar |
-| `inteligencia` | Un adaptador por proveedor de Threat Intelligence, con timeout por fuente y circuit breaker | Sin implementar |
-| `motor` | Motor de riesgo, motor de explicación y base de reputación propia | Sin implementar |
+| `analisis` | Orquesta cada análisis y contiene los analizadores de URL, imagen y texto | Analizador de enlaces: normalización, heurísticas, redirecciones y edad del dominio |
+| `inteligencia` | Un adaptador por proveedor de Threat Intelligence, con timeout por fuente y circuit breaker | Interfaz común y Google Safe Browsing |
+| `motor` | Motor de riesgo, motor de explicación y base de reputación propia | Motor de riesgo y motor de explicación |
 | `catalogo` | Marcas peruanas, dominios oficiales y variantes de suplantación, con versiones | Sin implementar |
 | `curacion` | Cola de reportes, campañas e invalidación de resultados | Sin implementar |
 
-Las cinco apps sin implementar tienen solo su estructura y todavía no están en `INSTALLED_APPS`.
+`catalogo` y `curacion` tienen solo su estructura. Ellas, `inteligencia` y `motor`, que todavía no tienen modelos, no están en `INSTALLED_APPS`.
 
 En la nube la aplicación corre en Render, con dos servicios (Dev y Prod) que usan la misma imagen, y PostgreSQL en Neon. El plan gratuito de Render no tiene workers, por eso allí Celery corre en modo eager (`CELERY_EAGER`). En local, `docker-compose.yml` levanta PostgreSQL, Redis, la aplicación y un worker de Celery.
 
@@ -176,11 +184,11 @@ El job `secretos` descarga el binario de gitleaks 8.21.2 y ejecuta `gitleaks det
 ├── config/                 # settings por ambiente, urls, wsgi y Celery
 │   └── settings/           # base, dev, test y prod
 ├── core/                   # salud (views.py), política de salida (net.py) y CSP (middleware.py)
-├── analisis/               # sin implementar
+├── analisis/               # analizador de enlaces con normalización, heurísticas, redirecciones y edad
 ├── catalogo/               # sin implementar
 ├── curacion/               # sin implementar
-├── inteligencia/           # sin implementar
-├── motor/                  # sin implementar
+├── inteligencia/           # interfaz común de las fuentes externas y Google Safe Browsing
+├── motor/                  # motor de riesgo y motor de explicación
 ├── tests/                  # pruebas de pytest
 ├── docs/
 │   ├── requisitos.md       # qué hace la plataforma, con todos sus valores

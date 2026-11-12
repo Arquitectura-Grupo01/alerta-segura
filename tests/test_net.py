@@ -98,4 +98,6 @@ def test_politica_de_salida_no_cambia_sin_revision():
     assert net.PUERTOS_PERMITIDOS == {80, 443}
     assert net.MAX_REDIRECCIONES == 3
     assert net.TIMEOUT_CONEXION_SEGUNDOS == 2
+    assert net.PLAZO_TOTAL_SEGUNDOS == 10
+    assert net.METODOS_PERMITIDOS == {"GET", "HEAD"}
     assert net.MAX_BYTES_RESPUESTA == 2 * 1024 * 1024

@@ -1292,15 +1292,51 @@ svg {
 
 .detalle-senales p { margin-top: 8px; }
 
+/* Botón secundario del resultado. Solo borde, para no competir con el nivel. */
+.avisar { margin-top: 22px; }
+
+.boton-avisar {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 18px;
+  border: 1px solid var(--linea);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--texto);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.boton-avisar:hover {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.avisar-estado {
+  margin: 10px 0 0;
+  color: var(--secundario);
+  font-size: 0.9375rem;
+}
+
+.avisar-estado:empty { display: none; }
+
+@media (min-width: 560px) {
+  .boton-avisar { width: auto; }
+}
+
 .resultado-otro { margin-top: 32px; }
 
-.resultado-otro .boton-analizar {
+.resultado-otro .boton-analizar,
+.pagina-error .boton-analizar {
   width: 100%;
   text-decoration: none;
 }
 
 @media (min-width: 640px) {
-  .resultado-otro .boton-analizar { width: auto; }
+  .resultado-otro .boton-analizar,
+  .pagina-error .boton-analizar { width: auto; }
 }
 
 .oculto {
@@ -1350,4 +1386,34 @@ svg {
   .boton-analizar,
   .detalle summary::after,
   .detalle::details-content { transition: none; }
+}
+
+/* Páginas de error (templates/error_base.html y templates/500.html). */
+
+.pagina-error {
+  padding-block: 160px 96px;
+  min-height: 70vh;
+}
+
+.pagina-error-codigo {
+  margin: 0 0 12px;
+  color: var(--secundario);
+  font-size: 0.9375rem;
+}
+
+.pagina-error h1 {
+  margin: 0 0 16px;
+  max-width: 22ch;
+  color: var(--texto);
+  font-size: clamp(2rem, 6vw, 3.25rem);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.pagina-error-texto {
+  margin: 0 0 32px;
+  max-width: 40rem;
+  color: var(--cuerpo);
+  font-size: 1.125rem;
+  line-height: 1.6;
 }
