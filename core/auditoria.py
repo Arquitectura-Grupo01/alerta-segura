@@ -20,6 +20,11 @@ CLAVES_PROHIBIDAS = frozenset({
     "email", "telefono", "dni", "tarjeta", "cuenta", "captura",
 })
 IPV4_EN_TEXTO = re.compile(r"(?:\d{1,3}\.){3}\d{1,3}")
+# Tramos que podrían ser una IPv6 dentro de un texto ("conecto a 2001:db8::1").
+TRAMO_IP = re.compile(r"[0-9A-Fa-f:.]{2,}")
+# objeto es un identificador, "app.Modelo:id" o un módulo como "core.net". El id puede
+# ser un número o un UUID. No se enmascara: enmascarar partiría un UUID en pedazos.
+IDENTIFICADOR = re.compile(r"[a-z][a-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)*(?::[A-Za-z0-9-]{1,64})?")
 
 
 def _es_ip_o_url(valor: str) -> bool:
@@ -28,13 +33,29 @@ def _es_ip_o_url(valor: str) -> bool:
     DNI, tarjetas, cuentas, correos, teléfonos y montos sí se enmascaran: lo hace
     _validar_texto con enmascarar().
     """
-    if "://" in valor or IPV4_EN_TEXTO.search(valor):
+    return "://" in valor or _contiene_ip(valor)
+
+
+def _contiene_ip(valor: str) -> bool:
+    """True si el texto trae una IPv4 o una IPv6, sola o en medio de una frase."""
+    if IPV4_EN_TEXTO.search(valor):
         return True
-    try:
-        ipaddress.ip_address(valor.strip())
-    except ValueError:
-        return False
-    return True
+    for tramo in TRAMO_IP.findall(valor):
+        if ":" not in tramo:
+            continue
+        try:
+            ipaddress.ip_address(tramo.rstrip("."))
+        except ValueError:
+            continue
+        return True
+    return False
+
+
+def _validar_objeto(objeto: str) -> None:
+    if len(objeto) > MAX_LARGO_OBJETO:
+        raise ValueError(f"objeto supera {MAX_LARGO_OBJETO} caracteres")
+    if objeto and not IDENTIFICADOR.fullmatch(objeto):
+        raise ValueError("objeto debe ser un identificador como catalogo.Dominio:42")
 
 
 def _validar_texto(campo: str, valor: str, maximo: int) -> str:
@@ -72,8 +93,8 @@ def registrar_evento(tipo, *, usuario=None, objeto="", motivo="", detalle=None):
     """Guarda un evento de auditoría y lo devuelve.
 
     usuario es la cuenta interna que actuó; un visitante anónimo cuenta como None.
-    objeto es solo un identificador ("catalogo.Dominio:42"). Los textos pasan por
-    enmascarar() antes de guardarse. Una IP o una URL levanta ValueError y el
+    objeto es solo un identificador ("catalogo.Dominio:42") y se guarda tal cual. motivo
+    y detalle pasan por enmascarar() antes de guardarse. Una IP o una URL levanta ValueError y el
     evento no se guarda.
     """
     if tipo not in TipoEvento.values:
@@ -81,7 +102,7 @@ def registrar_evento(tipo, *, usuario=None, objeto="", motivo="", detalle=None):
     detalle = {} if detalle is None else detalle
     if not isinstance(detalle, dict):
         raise ValueError("detalle debe ser un diccionario")
-    objeto = _validar_texto("objeto", objeto, MAX_LARGO_OBJETO)
+    _validar_objeto(objeto)
     motivo = _validar_texto("motivo", motivo, MAX_LARGO_MOTIVO)
     detalle = _validar_detalle(detalle)
     if usuario is not None and not getattr(usuario, "is_authenticated", False):

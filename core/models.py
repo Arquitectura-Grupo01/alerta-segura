@@ -29,6 +29,12 @@ class EventoQuerySet(models.QuerySet):
     def bulk_update(self, objs, fields, batch_size=None):
         raise EventoInmutable("Los eventos de auditoría no se editan.")
 
+    def bulk_create(self, objs, *args, **kwargs):
+        # update_conflicts convierte el INSERT en un UPSERT que edita eventos existentes.
+        if kwargs.get("update_conflicts"):
+            raise EventoInmutable("Los eventos de auditoría no se editan.")
+        return super().bulk_create(objs, *args, **kwargs)
+
     def delete(self):
         raise EventoInmutable("Los eventos de auditoría no se borran.")
 
@@ -63,6 +69,9 @@ class EventoAuditoria(models.Model):
     def save(self, *args, **kwargs):
         if not self._state.adding:
             raise EventoInmutable("Los eventos de auditoría no se editan.")
+        # Sin force_insert, un objeto nuevo con el id de un evento existente haría un
+        # UPDATE y lo sobrescribiría. Así falla por id duplicado.
+        kwargs["force_insert"] = True
         super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
