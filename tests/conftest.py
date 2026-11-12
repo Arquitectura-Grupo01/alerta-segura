@@ -1,5 +1,5 @@
 import pytest
-from django.core.cache import cache
+from django.core.cache import cache, caches
 
 
 @pytest.fixture(autouse=True)
@@ -7,8 +7,10 @@ def cache_limpia():
     """La caché de los tests vive en el proceso: sin esto, los contadores del rate limit
     de un test se arrastrarían al siguiente."""
     cache.clear()
+    caches["tecnica"].clear()
     yield
     cache.clear()
+    caches["tecnica"].clear()
 
 
 @pytest.fixture(autouse=True)

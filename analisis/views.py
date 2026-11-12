@@ -6,6 +6,7 @@ from analisis.edad import edad_en_dias
 from analisis.heuristicas import HEURISTICAS, detectar_senales
 from analisis.normalizacion import LARGO_MAXIMO, URLInvalida, normalizar
 from core.entrada import ANALISIS, limitar
+from inteligencia.fuentes import consultar_fuentes, fuentes_activas, resumir
 from motor.explicacion import Recorrido, explicar
 from motor.riesgo import Nivel, Senales, calcular
 
@@ -16,8 +17,9 @@ def analizar(request):
     """Analiza un enlace y muestra el resultado.
 
     Sigue las redirecciones desde el servidor, revisa la dirección del enlace y la del
-    destino, y busca la edad de las dos webs. Todavía no hay fuentes externas, catálogo de
-    marcas ni caché: la cobertura queda por debajo de 70 % y el resultado nunca es Seguro.
+    destino, busca la edad de las dos webs y consulta las fuentes externas activas.
+    Todavía no hay ninguna fuente, catálogo de marcas ni caché: la cobertura queda por
+    debajo de 70 % y el resultado nunca es Seguro.
     El orquestador de la tarea 25 reemplazará esta vista por el flujo POST, redirect y GET
     hacia `/resultado/<uuid>/`.
     """
@@ -41,11 +43,15 @@ def analizar(request):
     if final is not None:
         encontradas.update(detectar_senales(final))
     dominio = final.dominio if final is not None else enlace.dominio
+    # A las fuentes va la dirección de destino sin parámetros de rastreo.
+    fuentes = resumir(consultar_fuentes(fuentes_activas(), (final or enlace).url))
     senales = Senales(
         tipo_entrada="enlace",
         # En el orden del registro, para que los motivos salgan siempre en el mismo orden.
         heuristicas=tuple(codigo for codigo in HEURISTICAS if codigo in encontradas),
         edad_dias=edad_en_dias([enlace.dominio, dominio]),
+        fuentes=fuentes.valor,
+        fuentes_con_deteccion=fuentes.confirmaciones,
     )
     recorrido = Recorrido(
         saltos=destino.saltos if final is not None else None,

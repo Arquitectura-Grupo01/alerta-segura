@@ -11,6 +11,7 @@ El repositorio contiene la base del sistema, el pipeline y un primer análisis d
 Implementado:
 
 - Análisis de enlaces (`analisis/` y `motor/`). `/analizar` lee el enlace como lo lee el navegador y lo sigue desde el servidor con `pedir_url`, hasta 3 redirecciones en total contando las de `<meta http-equiv="refresh">` y la cabecera `Refresh`. Revisa con heurísticas locales la dirección pegada y la de destino, y busca por RDAP la edad de las dos webs. Manda la más nueva; un dominio sin RDAP, como los `.pe`, un acortador o un alojamiento compartido como netlify.app no dan edad. `motor` calcula el nivel y lo explica con 3 a 5 motivos. Sin fuentes externas la cobertura no llega a 70 % y el resultado nunca es Seguro.
+- Interfaz común de las fuentes externas (`inteligencia/fuentes.py`). Cada proveedor será una subclase de `Fuente` que responde detección, sin detecciones, desconocido o falló. Sin detecciones exige un análisis del proveedor de las últimas 24 h; si es más viejo, cuenta como desconocido. La clase base pone el circuit breaker, que se abre al tercer fallo seguido y reintenta a los 5 minutos, la cuota diaria y el presupuesto global por hora. `consultar_fuentes` las llama en paralelo con un plazo total, y el análisis sigue aunque fallen todas. Las respuestas crudas van a una caché técnica aparte, 24 h como máximo, y `inteligencia/claves.py` quita las claves de API de los logs. Todavía no hay ningún proveedor conectado.
 - `/health/` responde si el proceso está vivo y devuelve el ambiente y el commit desplegado. `/ready/` confirma que la aplicación alcanza la base de datos.
 - `templates/400.html`, `403.html`, `403_csrf.html`, `404.html`, `429.html` y `500.html` son las páginas de error, en español sencillo, con el diseño del sitio y un enlace al inicio. Ninguna muestra trazas, rutas ni el mensaje de la excepción. Las cuatro primeras extienden `error_base.html`; la 500 es independiente porque Django la renderiza sin contexto y la causa del error puede ser la base de datos.
 - `core/entrada.py` es la capa de entrada. `limitar` pone un tope por IP a `/analizar` (30 análisis cada 10 minutos) y responde 429 con `Retry-After` antes de resolver DNS o abrir conexiones. La IP sale de `X-Forwarded-For` según `ENTRADA_PROXIES_CONFIABLES` (2 en producción, 0 en los demás ambientes), se agrupa por /64 en IPv6 y solo se guarda como HMAC con expiración. `consumir_presupuesto_externo` limita las consultas a servicios externos por hora. `LimiteDeTamanoMiddleware` rechaza con 413 las solicitudes de más de 5 MB y con 400 un `Content-Length` inválido, y Django corta con 400 los formularios de más de 128 KB.
@@ -21,12 +22,12 @@ Implementado:
 - Settings por ambiente (`dev`, `test`, `prod`) leídos de variables de entorno. `prod` activa la redirección a HTTPS, cookies `Secure`, HSTS, `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy` y TLS obligatorio hacia PostgreSQL.
 - Admin de Django en una ruta configurable.
 - Celery configurado con Redis como broker, sin tareas definidas.
-- Caché compartida entre procesos (`config/settings/cache.py`): Redis en local y una tabla de PostgreSQL con tope de 5000 filas en Render. `scripts/entrypoint.sh` crea la tabla con `createcachetable` al arrancar. Los tests usan `LocMemCache`.
+- Caché compartida entre procesos (`config/settings/cache.py`): Redis en local y una tabla de PostgreSQL con tope de 5000 filas en Render. La caché técnica de las fuentes externas va en otra tabla, para que sus respuestas no desplacen a los contadores del rate limit. `scripts/entrypoint.sh` crea la tabla con `createcachetable` al arrancar. Los tests usan `LocMemCache`.
 - Imagen Docker multi-stage que se ejecuta con un usuario sin privilegios. En local y en el CI la aplicación entra a PostgreSQL con un rol sin superusuario.
 - Auditoría de solo agregar (`core/models.py`, `core/auditoria.py`): el modelo `EventoAuditoria` rechaza editar y borrar, también en bloque, y el admin lo muestra solo de lectura. Las demás apps registran con `registrar_evento(tipo, usuario=..., objeto=..., motivo=..., detalle=...)`, que enmascara los textos y rechaza IP y URLs. Todavía no hay trigger en PostgreSQL ni cadena de hashes.
 - Enmascarado de datos personales (`core/enmascarado.py`): `enmascarar(texto)` reemplaza de forma irreversible tarjetas, CCI, cuentas, teléfonos, DNI, correos y montos por marcadores como `[DNI]`. Normaliza con NFKC y quita caracteres invisibles para que no se esquive, corta el texto a 20 000 caracteres y usa expresiones sin cuantificadores anidados. `FiltroEnmascarado` lo aplica a todo mensaje de log, a sus argumentos y a las trazas, y `registrar_evento` lo aplica a lo que guarda.
 - Pipeline de GitHub Actions con tests, cobertura, análisis estático, auditoría de dependencias, detección de secretos, escaneo de la imagen, despliegue a Dev y Prod, smoke test y DAST.
-- 508 tests en `tests/` sobre los endpoints de salud, la página de inicio, la CSP y las demás cabeceras de seguridad, la política de salida, la capa de entrada, las páginas de error, la caché, la auditoría, el enmascarado, las conexiones salientes, el análisis de enlaces y los settings.
+- 544 tests en `tests/` sobre los endpoints de salud, la página de inicio, la CSP y las demás cabeceras de seguridad, la política de salida, la capa de entrada, las páginas de error, la caché, la auditoría, el enmascarado, las conexiones salientes, el análisis de enlaces, las fuentes externas y los settings.
 
 Planificado según el informe del Hito 1, sin código todavía:
 
@@ -47,12 +48,12 @@ Monolito modular en Django 5.2: una sola aplicación, una sola imagen Docker y s
 |---|---|---|
 | `core` | Capa de entrada (validación, rate limit, CSRF, CSP), caché de resultados, auditoría, salud y validación de destinos de red | `/health/`, `/ready/`, `net.py` y la CSP |
 | `analisis` | Orquesta cada análisis y contiene los analizadores de URL, imagen y texto | Analizador de enlaces: normalización, heurísticas, redirecciones y edad del dominio |
-| `inteligencia` | Un adaptador por proveedor de Threat Intelligence, con timeout por fuente y circuit breaker | Sin implementar |
+| `inteligencia` | Un adaptador por proveedor de Threat Intelligence, con timeout por fuente y circuit breaker | Interfaz común, sin proveedores todavía |
 | `motor` | Motor de riesgo, motor de explicación y base de reputación propia | Motor de riesgo y motor de explicación |
 | `catalogo` | Marcas peruanas, dominios oficiales y variantes de suplantación, con versiones | Sin implementar |
 | `curacion` | Cola de reportes, campañas e invalidación de resultados | Sin implementar |
 
-`inteligencia`, `catalogo` y `curacion` tienen solo su estructura. Ellas y `motor`, que todavía no tiene modelos, no están en `INSTALLED_APPS`.
+`catalogo` y `curacion` tienen solo su estructura. Ellas, `inteligencia` y `motor`, que todavía no tienen modelos, no están en `INSTALLED_APPS`.
 
 En la nube la aplicación corre en Render, con dos servicios (Dev y Prod) que usan la misma imagen, y PostgreSQL en Neon. El plan gratuito de Render no tiene workers, por eso allí Celery corre en modo eager (`CELERY_EAGER`). En local, `docker-compose.yml` levanta PostgreSQL, Redis, la aplicación y un worker de Celery.
 
@@ -184,7 +185,7 @@ El job `secretos` descarga el binario de gitleaks 8.21.2 y ejecuta `gitleaks det
 ├── analisis/               # analizador de enlaces con normalización, heurísticas, redirecciones y edad
 ├── catalogo/               # sin implementar
 ├── curacion/               # sin implementar
-├── inteligencia/           # sin implementar
+├── inteligencia/           # interfaz común de las fuentes externas
 ├── motor/                  # motor de riesgo y motor de explicación
 ├── tests/                  # pruebas de pytest
 ├── docs/

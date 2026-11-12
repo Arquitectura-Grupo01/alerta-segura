@@ -153,8 +153,14 @@ LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     # Todo mensaje pasa por el enmascarado antes de escribirse (core/enmascarado.py).
-    "filters": {"enmascarar": {"()": "core.enmascarado.FiltroEnmascarado"}},
-    "handlers": {"console": {"class": "logging.StreamHandler", "filters": ["enmascarar"]}},
+    # Antes, las claves de API de las fuentes externas se cambian por [CLAVE].
+    "filters": {
+        "claves": {"()": "inteligencia.claves.FiltroClaves"},
+        "enmascarar": {"()": "core.enmascarado.FiltroEnmascarado"},
+    },
+    "handlers": {
+        "console": {"class": "logging.StreamHandler", "filters": ["claves", "enmascarar"]},
+    },
     "root": {"handlers": ["console"], "level": env("LOG_LEVEL", default="INFO")},
     # httpx registra en INFO cada petición con su ruta y sus parámetros completos, que
     # son lo que el ciudadano mandó a analizar. Solo avisos y errores.
