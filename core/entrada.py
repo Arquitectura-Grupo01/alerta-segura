@@ -27,8 +27,9 @@ ANALISIS = Politica("analisis", 30, 10 * 60)
 REPORTES = Politica("reportes", 10, 60 * 60)
 # Tope global de consultas a fuentes externas por hora, sin importar quién las pida: bots
 # repartidos en muchas IP no deben agotar las cuotas gratuitas de los proveedores.
-# Valor provisional: se ajusta con la cuota real de la primera fuente (tareas 18 y 19).
-CONSULTAS_EXTERNAS_POR_HORA = 200
+# Cada análisis nuevo consulta hasta 6 fuentes: alcanza para unos 100 análisis nuevos por
+# hora. Cada fuente tiene además su propia cuota diaria, que cuida al proveedor.
+CONSULTAS_EXTERNAS_POR_HORA = 600
 # Archivo de 5 MB más el armado del formulario multipart.
 MAX_BYTES_CUERPO = 5 * 1024 * 1024 + 64 * 1024
 PREFIJO_IPV6 = 64

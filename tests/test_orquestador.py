@@ -105,7 +105,7 @@ def test_cada_dato_de_las_estadisticas_tiene_su_campo(client, fuente):
     assert "una_fuente_confirma" in guardado.reglas
     # De la fuente solo queda su estado, nunca su respuesta.
     assert guardado.fuentes == [
-        {"fuente": "contada", "titulo": "Lista de prueba", "estado": "deteccion"}
+        {"fuente": "contada", "titulo": "Lista de prueba", "estado": "deteccion", "valor": 100}
     ]
     assert (guardado.desde_cache, guardado.departamento) == (False, "")
     assert isinstance(guardado.publico, uuid.UUID) and guardado.publico.version == 4

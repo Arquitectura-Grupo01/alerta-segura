@@ -20,7 +20,7 @@ from analisis.heuristicas import HEURISTICAS, detectar_senales
 from analisis.models import Analisis
 from analisis.normalizacion import EnlaceNormalizado, URLInvalida, normalizar
 from core.resultados import leer_resultado
-from inteligencia.fuentes import consultar_fuentes, fuentes_activas, resumir
+from inteligencia.fuentes import VALOR_CONFIRMA, consultar_fuentes, fuentes_activas, resumir
 from motor.cache import descartar_resultado, guardar_resultado
 from motor.explicacion import Recorrido, explicar
 from motor.riesgo import VERSION_INICIAL, Nivel, Senales, Veredicto, calcular
@@ -81,6 +81,7 @@ def _calcular(enlace: EnlaceNormalizado) -> tuple[Veredicto, dict]:
             "fuente": fuente.nombre,
             "titulo": fuente.titulo or fuente.nombre,
             "estado": respuesta.estado.value,
+            "valor": respuesta.valor,
         }
         for fuente, respuesta in zip(activas, respuestas, strict=True)
     ]
@@ -117,8 +118,19 @@ def _calcular(enlace: EnlaceNormalizado) -> tuple[Veredicto, dict]:
 
 
 def estados_de(fuentes: list[dict]) -> tuple[tuple[str, str], ...]:
-    """Título y estado de cada fuente, como los pide el motor de explicación."""
-    return tuple((fuente["titulo"], fuente["estado"]) for fuente in fuentes)
+    """Título y estado de cada fuente, como los pide el motor de explicación.
+
+    Una detección de menos de VALOR_CONFIRMA, como 1 o 2 motores de VirusTotal o una IP
+    reportada, se muestra como sospecha.
+    """
+    return tuple((fuente["titulo"], _estado_visible(fuente)) for fuente in fuentes)
+
+
+def _estado_visible(fuente: dict) -> str:
+    valor = fuente.get("valor")
+    if fuente["estado"] == "deteccion" and valor is not None and valor < VALOR_CONFIRMA:
+        return "sospecha"
+    return fuente["estado"]
 
 
 def _senales(guardadas: dict) -> Senales:

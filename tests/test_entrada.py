@@ -246,7 +246,8 @@ def test_el_presupuesto_externo_se_renueva_cada_hora(monkeypatch):
 
 
 def test_el_presupuesto_externo_es_global_y_no_por_ip():
-    assert CONSULTAS_EXTERNAS_POR_HORA == 200
+    # 6 fuentes por análisis nuevo: unos 100 análisis nuevos por hora.
+    assert CONSULTAS_EXTERNAS_POR_HORA == 600
     assert ipaddress.ip_address(IP_A) != ipaddress.ip_address(IP_B)
 
 

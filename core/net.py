@@ -23,7 +23,14 @@ logger = logging.getLogger(__name__)
 # igual en todos los ambientes y por eso no se leen de variables de entorno.
 ESQUEMAS_PERMITIDOS = frozenset({"http", "https"})
 PUERTOS_PERMITIDOS = frozenset({80, 443})
-METODOS_PERMITIDOS = frozenset({"GET", "HEAD"})
+# POST solo existe para las APIs de las fuentes externas que lo exigen.
+METODOS_PERMITIDOS = frozenset({"GET", "HEAD", "POST"})
+# Cabeceras que quien llama no puede poner: las fija este módulo o romperían sus controles.
+# Accept-Encoding: solo gzip se descomprime con tope.
+ENCABEZADOS_PROHIBIDOS = frozenset({
+    "host", "cookie", "user-agent", "accept-encoding", "content-length",
+    "transfer-encoding", "connection", "proxy-authorization",
+})
 MAX_REDIRECCIONES = 3
 TIMEOUT_CONEXION_SEGUNDOS = 2
 # Un servidor puede mandar un byte por segundo y nunca disparar el timeout de lectura:
@@ -279,7 +286,7 @@ def _leer_cuerpo(respuesta, limite):
     return bytes(cuerpo), RESULTADO_OK
 
 
-def _pedir_a_una_ip(cliente, metodo, url, ip, limite):
+def _pedir_a_una_ip(cliente, metodo, url, ip, limite, encabezados, datos):
     """Pide url a una IP ya validada. Devuelve (respuesta, None) o (None, location)."""
     partes = urlsplit(url)
     host = partes.hostname.encode("idna").decode("ascii")
@@ -292,7 +299,8 @@ def _pedir_a_una_ip(cliente, metodo, url, ip, limite):
     with cliente.stream(
         metodo,
         destino,
-        headers={"Host": f"{host_http}{puerto}"},
+        headers={**encabezados, "Host": f"{host_http}{puerto}"},
+        data=datos,
         extensions={"sni_hostname": host},
     ) as respuesta:
         if respuesta.status_code in CODIGOS_DE_REDIRECCION and "location" in respuesta.headers:
@@ -311,14 +319,14 @@ def _pedir_a_una_ip(cliente, metodo, url, ip, limite):
         ), None
 
 
-def _pedir_a_las_ips(cliente, metodo, url, ips, limite):
+def _pedir_a_las_ips(cliente, metodo, url, ips, limite, encabezados, datos):
     """Prueba las IPs validadas, IPv4 primero; solo reintenta si no se pudo conectar."""
     ultimo_fallo = None
     # En orden alfabético muchas IPv6 quedan antes que las IPv4 ("2600:..." < "52...").
     # Sin salida IPv6, los tres intentos se gastaban sin probar ninguna IPv4.
     for ip in sorted(ips, key=lambda ip: ":" in ip)[:MAX_IPS_POR_DESTINO]:
         try:
-            return _pedir_a_una_ip(cliente, metodo, url, ip, limite)
+            return _pedir_a_una_ip(cliente, metodo, url, ip, limite, encabezados, datos)
         except (httpx.ConnectError, httpx.ConnectTimeout) as exc:
             ultimo_fallo = exc
         except httpx.TimeoutException:
@@ -335,6 +343,8 @@ def pedir_url(
     url: str,
     *,
     metodo: str = "GET",
+    encabezados: dict[str, str] | None = None,
+    datos: dict[str, str] | None = None,
     max_redirecciones: int | None = None,
     plazo_segundos: float | None = None,
     transporte=None,
@@ -343,16 +353,30 @@ def pedir_url(
 
     Cada destino, el inicial y los de las redirecciones, pasa por validar_url. Un destino
     bloqueado deja un evento de auditoría y el resultado dice "destino_bloqueado".
-    Solo GET y HEAD, sin cookies. max_redirecciones y plazo_segundos solo pueden bajar
+    GET, HEAD y POST, sin cookies. max_redirecciones y plazo_segundos solo pueden bajar
     los valores de la política, que son los que se usan si faltan: el analizador de URL
-    los usa para repartir sus 3 saltos y su tiempo entre varias llamadas. transporte
-    existe para los tests (httpx.MockTransport): reemplaza la red, nunca la validación.
+    los usa para repartir sus 3 saltos y su tiempo entre varias llamadas.
+
+    encabezados y datos (un formulario, solo con POST) existen para las APIs de las
+    fuentes externas, que llevan ahí su clave. Con cabeceras propias, o con POST, no se
+    sigue ninguna redirección: la clave o el cuerpo nunca llegan a otro servidor.
+    transporte existe para los tests (httpx.MockTransport): reemplaza la red, nunca la
+    validación.
     """
     metodo = metodo.upper()
     if metodo not in METODOS_PERMITIDOS:
-        raise ValueError("pedir_url solo admite GET y HEAD")
+        raise ValueError("pedir_url solo admite GET, HEAD y POST")
+    if datos is not None and metodo != "POST":
+        raise ValueError("Solo un POST lleva datos")
+    encabezados = dict(encabezados or {})
+    prohibidos = {nombre.lower() for nombre in encabezados} & ENCABEZADOS_PROHIBIDOS
+    if prohibidos:
+        raise ValueError(f"Cabeceras que pedir_url no permite cambiar: {sorted(prohibidos)}")
+    sin_redirecciones = metodo == "POST" or bool(encabezados)
     if max_redirecciones is None:
-        max_redirecciones = MAX_REDIRECCIONES
+        max_redirecciones = 0 if sin_redirecciones else MAX_REDIRECCIONES
+    if sin_redirecciones and max_redirecciones:
+        raise ValueError("Con POST o con cabeceras propias no se siguen redirecciones")
     if plazo_segundos is None:
         plazo_segundos = PLAZO_TOTAL_SEGUNDOS
     if not 0 <= max_redirecciones <= MAX_REDIRECCIONES:
@@ -370,7 +394,9 @@ def pedir_url(
             except DestinoBloqueado as exc:
                 _auditar_bloqueo(exc.categoria, salto)
                 return RespuestaSegura(RESULTADO_BLOQUEADO, saltos=salto, motivo=exc.categoria)
-            respuesta, location = _pedir_a_las_ips(cliente, metodo, actual, ips, limite)
+            respuesta, location = _pedir_a_las_ips(
+                cliente, metodo, actual, ips, limite, encabezados, datos
+            )
             if respuesta is not None:
                 return _con_saltos(respuesta, salto)
             if salto == max_redirecciones:

@@ -4,7 +4,7 @@ Reglas para cualquier agente que programe en este repo. Si una regla choca con l
 
 **El repo es público.** No escribas en él datos personales reales, valores de variables de entorno, URLs de los ambientes desplegados ni la ruta real del admin. En tests y ejemplos usa datos ficticios.
 
-Alerta Segura analiza enlaces, capturas, códigos QR y textos que recibió un ciudadano, y devuelve un nivel de riesgo, los motivos en lenguaje cotidiano y una acción. Es un monolito modular en Django 5.2 con PostgreSQL, Celery y Redis. Hoy tienen código `core`, `analisis` y `motor`; `inteligencia`, `catalogo` y `curacion` son estructura vacía.
+Alerta Segura analiza enlaces, capturas, códigos QR y textos que recibió un ciudadano, y devuelve un nivel de riesgo, los motivos en lenguaje cotidiano y una acción. Es un monolito modular en Django 5.2 con PostgreSQL, Celery y Redis. Hoy tienen código `core`, `analisis`, `motor` e `inteligencia`; `catalogo` y `curacion` son estructura vacía.
 
 `docs/requisitos.md` dice qué hace la plataforma, con todos sus valores; `docs/seguridad.md`, sus riesgos y pruebas obligatorias; `docs/plan.md`, las tareas numeradas; y `docs/decisiones.md`, lo que decidió el equipo, que manda sobre lo demás. Cuando te pidan una tarea por su número, léela completa en el plan junto con las secciones de requisitos y seguridad que toca. Si es una propuesta nueva o algo que requiere acuerdo del equipo y no figura en `docs/decisiones.md`, pregunta antes de programarlo.
 

@@ -493,8 +493,8 @@ def test_head_no_descarga_el_cuerpo(monkeypatch):
     assert peticiones[0].method == "HEAD"
 
 
-@pytest.mark.parametrize("metodo", ["POST", "PUT", "DELETE", "PATCH", "OPTIONS"])
-def test_solo_se_admiten_get_y_head(metodo):
+@pytest.mark.parametrize("metodo", ["PUT", "DELETE", "PATCH", "OPTIONS"])
+def test_solo_se_admiten_get_head_y_post(metodo):
     transporte, peticiones = servidor({})
     with pytest.raises(ValueError):
         pedir_url("http://ok.example/", metodo=metodo, transporte=transporte)
@@ -552,3 +552,68 @@ def test_httpx_solo_se_importa_en_core_net():
                    for forma in ("import", "from") for cliente in ("httpx", "httpcore")):
                 importan.append(archivo.relative_to(BASE_DIR).as_posix())
     assert importan == ["core/net.py"]
+
+
+# --- POST y cabeceras para las APIs de las fuentes externas -------------------
+
+def test_un_post_lleva_su_formulario_y_sus_cabeceras_a_la_ip_validada(monkeypatch):
+    resolver(monkeypatch, {"api.example": ["8.8.8.8"]})
+    transporte, peticiones = servidor({("api.example", "/v1/url/"): httpx.Response(200, json={})})
+    respuesta = pedir_url(
+        "https://api.example/v1/url/",
+        metodo="POST",
+        encabezados={"Auth-Key": "clave-ficticia"},
+        datos={"url": "https://web.example/a?b=1"},
+        transporte=transporte,
+    )
+    assert respuesta.resultado == RESULTADO_OK
+    [peticion] = peticiones
+    assert (peticion.method, peticion.url.host) == ("POST", "8.8.8.8")
+    assert peticion.headers["host"] == "api.example"
+    assert peticion.headers["auth-key"] == "clave-ficticia"
+    assert peticion.headers["user-agent"] == net.USER_AGENT
+    assert peticion.headers["content-type"] == "application/x-www-form-urlencoded"
+    assert peticion.content == b"url=https%3A%2F%2Fweb.example%2Fa%3Fb%3D1"
+
+
+@pytest.mark.parametrize("opciones", [
+    {"metodo": "POST", "datos": {"url": "x"}},
+    {"encabezados": {"x-apikey": "clave-ficticia"}},
+])
+def test_con_una_clave_o_un_post_no_se_sigue_ninguna_redireccion(monkeypatch, opciones):
+    resolver(monkeypatch, {"api.example": ["8.8.8.8"], "otro.example": ["8.8.4.4"]})
+    transporte, peticiones = servidor({
+        ("api.example", "/"): redireccion("https://otro.example/robar"),
+    })
+    respuesta = pedir_url("https://api.example/", transporte=transporte, **opciones)
+    assert (respuesta.resultado, respuesta.saltos) == (RESULTADO_DEMASIADAS_REDIRECCIONES, 0)
+    # La clave nunca llegó a otro servidor.
+    assert [p.headers["host"] for p in peticiones] == ["api.example"]
+
+
+@pytest.mark.parametrize("opciones", [
+    {"encabezados": {"Key": "x"}, "max_redirecciones": 1},
+    {"metodo": "POST", "max_redirecciones": 2},
+    {"metodo": "GET", "datos": {"a": "b"}},
+    {"encabezados": {"Host": "interno.example"}},
+    {"encabezados": {"cookie": "sesion=1"}},
+    {"encabezados": {"Accept-Encoding": "br"}},
+    {"encabezados": {"User-Agent": "otro"}},
+])
+def test_las_opciones_que_romperian_la_politica_se_rechazan(opciones):
+    transporte, peticiones = servidor({})
+    with pytest.raises(ValueError):
+        pedir_url("https://api.example/", transporte=transporte, **opciones)
+    assert peticiones == []
+
+
+@pytest.mark.django_db
+def test_un_post_a_una_red_interna_se_bloquea_y_se_audita(monkeypatch):
+    resolver(monkeypatch, {"api.example": ["169.254.169.254"]})
+    transporte, peticiones = servidor({})
+    respuesta = pedir_url(
+        "https://api.example/", metodo="POST", datos={"a": "b"}, transporte=transporte
+    )
+    assert respuesta.resultado == RESULTADO_BLOQUEADO
+    assert peticiones == []
+    assert EventoAuditoria.objects.get().tipo == TipoEvento.DESTINO_BLOQUEADO

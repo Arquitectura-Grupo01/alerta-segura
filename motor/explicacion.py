@@ -173,6 +173,7 @@ AVISO = (
 # Estado de cada servicio de seguridad consultado, con los códigos de `inteligencia`.
 ESTADO_FUENTE = MappingProxyType({
     "deteccion": "La tiene reportada",
+    "sospecha": "La marca como sospechosa",
     "sin_detecciones": "La revisó hace menos de un día y no encontró nada",
     "desconocido": "No tiene datos de esta web",
     "fallo": "No respondió",

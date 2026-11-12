@@ -12,6 +12,7 @@ prohíben guardarlo en la reputación o en las estadísticas.
 """
 
 import hashlib
+import json
 import logging
 from concurrent.futures import ThreadPoolExecutor, wait
 from dataclasses import dataclass
@@ -23,6 +24,7 @@ from django.core.cache import cache, caches
 from django.db import connections
 
 from core.entrada import consumir_presupuesto_externo
+from core.net import RESULTADO_OK, RESULTADO_TIEMPO_AGOTADO, pedir_url
 from inteligencia.claves import registrar_clave
 
 logger = logging.getLogger(__name__)
@@ -43,6 +45,16 @@ MOTIVO_CUOTA = "cuota_agotada"
 MOTIVO_PRESUPUESTO = "presupuesto_agotado"
 MOTIVO_TIEMPO = "tiempo_agotado"
 MOTIVO_ERROR = "error"
+# Códigos con que un proveedor dice que se pasó su cuota. PhishTank usa 509.
+CODIGOS_DE_CUOTA = frozenset({429, 509})
+
+
+class FalloDeFuente(Exception):
+    """La consulta falló de una forma esperada: red, tiempo, cuota o respuesta rara."""
+
+    def __init__(self, motivo: str = MOTIVO_ERROR):
+        super().__init__(motivo)
+        self.motivo = motivo
 
 
 class Estado(Enum):
@@ -81,8 +93,11 @@ class Fuente:
     # Nombre que ve la persona en el detalle técnico.
     titulo = ""
     plazo_segundos = PLAZO_POR_FUENTE_SEGUNDOS
-    # Consultas por día que permite el proveedor; None si no hay tope.
+    # Consultas por día y por minuto que permite el proveedor; None si no hay tope.
     cuota_diaria: int | None = None
+    cuota_por_minuto: int | None = None
+    # Sin clave, una fuente que la necesita se omite.
+    requiere_clave = False
 
     def __init__(self, clave: str = ""):
         self.clave = clave
@@ -90,7 +105,7 @@ class Fuente:
 
     def disponible(self) -> bool:
         """False si la fuente no se puede usar, por ejemplo sin clave. Entonces se omite."""
-        return True
+        return bool(self.clave) or not self.requiere_clave
 
     def consultar(self, url: str) -> Respuesta:
         """Consulta la fuente sin lanzar excepciones: un error es el estado «falló»."""
@@ -103,6 +118,9 @@ class Fuente:
         self._gastar_cuota()
         try:
             respuesta = self._consultar(url)
+        except FalloDeFuente as error:
+            logger.warning("La fuente %s falló: %s", self.nombre, error.motivo)
+            respuesta = self.fallo(error.motivo)
         except Exception as error:
             # Solo el tipo: el mensaje de un error de red puede traer la URL del ciudadano.
             logger.warning("La fuente %s falló: %s", self.nombre, type(error).__name__)
@@ -114,8 +132,43 @@ class Fuente:
         return respuesta
 
     def _consultar(self, url: str) -> Respuesta:
-        """Pregunta al proveedor con `core.net.pedir_url` y `plazo_segundos`."""
+        """Pregunta al proveedor, normalmente con `pedir_json`."""
         raise NotImplementedError
+
+    def pedir_json(
+        self,
+        url: str,
+        *,
+        metodo: str = "GET",
+        encabezados: dict[str, str] | None = None,
+        datos: dict[str, str] | None = None,
+        codigos: tuple[int, ...] = (200,),
+    ) -> tuple[int, object]:
+        """Pide a la API del proveedor y devuelve (código HTTP, JSON leído).
+
+        Sin redirecciones: la clave nunca llega a otro servidor. Un código que no está en
+        `codigos`, una respuesta que no es JSON o un problema de red lanzan FalloDeFuente.
+        """
+        respuesta = pedir_url(
+            url,
+            metodo=metodo,
+            encabezados=encabezados,
+            datos=datos,
+            max_redirecciones=0,
+            plazo_segundos=self.plazo_segundos,
+        )
+        if respuesta.resultado == RESULTADO_TIEMPO_AGOTADO:
+            raise FalloDeFuente(MOTIVO_TIEMPO)
+        if respuesta.resultado != RESULTADO_OK:
+            raise FalloDeFuente()
+        if respuesta.codigo_http in CODIGOS_DE_CUOTA:
+            raise FalloDeFuente(MOTIVO_CUOTA)
+        if respuesta.codigo_http not in codigos:
+            raise FalloDeFuente()
+        try:
+            return respuesta.codigo_http, json.loads(respuesta.cuerpo)
+        except (ValueError, RecursionError) as error:
+            raise FalloDeFuente() from error
 
     # Respuestas que arma la subclase
 
@@ -168,19 +221,29 @@ class Fuente:
     def _clave_de_cuota(self) -> str:
         return self._clave(f"cuota:{datetime.now(UTC):%Y%m%d}")
 
+    def _clave_por_minuto(self) -> str:
+        return self._clave(f"minuto:{datetime.now(UTC):%Y%m%d%H%M}")
+
     def _queda_cuota(self) -> bool:
-        if self.cuota_diaria is None:
-            return True
-        return cache.get(self._clave_de_cuota(), 0) < self.cuota_diaria
+        if self.cuota_diaria is not None:
+            if cache.get(self._clave_de_cuota(), 0) >= self.cuota_diaria:
+                return False
+        if self.cuota_por_minuto is not None:
+            if cache.get(self._clave_por_minuto(), 0) >= self.cuota_por_minuto:
+                return False
+        return True
 
     def _gastar_cuota(self) -> None:
-        if self.cuota_diaria is None:
-            return
-        ahora = datetime.now(UTC)
-        medianoche = (ahora + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-        usadas = cache.get(self._clave_de_cuota(), 0) + 1
-        segundos = int((medianoche - ahora).total_seconds()) + 60
-        cache.set(self._clave_de_cuota(), usadas, timeout=segundos)
+        if self.cuota_diaria is not None:
+            ahora = datetime.now(UTC)
+            manana = ahora + timedelta(days=1)
+            medianoche = manana.replace(hour=0, minute=0, second=0, microsecond=0)
+            usadas = cache.get(self._clave_de_cuota(), 0) + 1
+            segundos = int((medianoche - ahora).total_seconds()) + 60
+            cache.set(self._clave_de_cuota(), usadas, timeout=segundos)
+        if self.cuota_por_minuto is not None:
+            usadas = cache.get(self._clave_por_minuto(), 0) + 1
+            cache.set(self._clave_por_minuto(), usadas, timeout=120)
 
 
 def fuentes_activas() -> list[Fuente]:
@@ -196,9 +259,21 @@ def fuentes_activas() -> list[Fuente]:
 
 def _crear_fuentes() -> list[Fuente]:
     # Se importan aquí: cada adaptador importa este módulo.
+    from inteligencia.abuseipdb import AbuseIPDB
+    from inteligencia.phishtank import PhishTank
     from inteligencia.safe_browsing import SafeBrowsing
+    from inteligencia.urlhaus import URLhaus
+    from inteligencia.urlscan import Urlscan
+    from inteligencia.virustotal import VirusTotal
 
-    return [SafeBrowsing(settings.SAFE_BROWSING_API_KEY)]
+    return [
+        SafeBrowsing(settings.SAFE_BROWSING_API_KEY),
+        URLhaus(settings.ABUSE_CH_AUTH_KEY),
+        PhishTank(settings.PHISHTANK_APP_KEY),
+        VirusTotal(settings.VIRUSTOTAL_API_KEY),
+        Urlscan(settings.URLSCAN_API_KEY),
+        AbuseIPDB(settings.ABUSEIPDB_API_KEY),
+    ]
 
 
 # Se crean en la primera consulta, cuando los settings ya están cargados.
