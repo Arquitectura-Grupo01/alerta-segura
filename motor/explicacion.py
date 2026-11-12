@@ -163,6 +163,7 @@ NOTA_REDIRECCIONES = (
     "enlace nunca se abre en tu celular."
 )
 SIN_DESTINO = "No pudimos seguir el enlace"
+OCUPADO = "Estamos revisando muchos enlaces a la vez. Espera unos segundos y vuelve a intentarlo."
 
 AVISO = (
     "Revisé en Alerta Segura un enlace que me llegó y salió «{nivel}». Lleva a {dominio}. "
@@ -244,6 +245,20 @@ def aviso_para_compartir(veredicto: Veredicto, dominio: str) -> str:
         dominio=dominio.replace(".", "[.]").replace(":", "[:]"),
         accion=accion[:1].lower() + accion[1:],
     )
+
+
+def hace_cuanto(segundos: float) -> str:
+    """«hace 5 minutos», para decir cuándo se analizó un resultado que ya estaba guardado."""
+    minutos = int(segundos // 60)
+    if minutos < 1:
+        return "hace menos de un minuto"
+    if minutos < 60:
+        return "hace 1 minuto" if minutos == 1 else f"hace {minutos} minutos"
+    horas = minutos // 60
+    if horas < 24:
+        return "hace 1 hora" if horas == 1 else f"hace {horas} horas"
+    dias = horas // 24
+    return "hace 1 día" if dias == 1 else f"hace {dias} días"
 
 
 def terminos_prohibidos(texto: str) -> list[str]:

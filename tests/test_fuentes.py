@@ -347,6 +347,7 @@ def test_una_fuente_sin_clave_se_omite(monkeypatch):
     assert [fuente.nombre for fuente in fuentes_activas()] == ["con"]
 
 
+@pytest.mark.django_db
 def test_una_deteccion_de_una_fuente_sube_el_resultado_a_peligroso(client, monkeypatch):
     vistas = []
 
@@ -356,7 +357,7 @@ def test_una_deteccion_de_una_fuente_sube_el_resultado_a_peligroso(client, monke
 
     monkeypatch.setattr(modulo, "_FUENTES", [Simulada(responder=detectar)])
     html = client.post(
-        reverse("analizar"), {"enlace": "ejemplo.com/inicio?utm_source=chat"}
+        reverse("analizar"), {"enlace": "ejemplo.com/inicio?utm_source=chat"}, follow=True
     ).content.decode()
     assert 'id="resultado-nivel">Peligroso</h1>' in html
     assert "Una lista de seguridad la tiene reportada" in html
@@ -364,9 +365,10 @@ def test_una_deteccion_de_una_fuente_sube_el_resultado_a_peligroso(client, monke
     assert vistas == ["https://ejemplo.com/inicio"]
 
 
+@pytest.mark.django_db
 def test_el_analisis_termina_aunque_todas_las_fuentes_fallen(client, monkeypatch):
     monkeypatch.setattr(modulo, "_FUENTES", [Simulada("a", romper), Simulada("b", romper)])
-    res = client.post(reverse("analizar"), {"enlace": "ejemplo.com/inicio"})
+    res = client.post(reverse("analizar"), {"enlace": "ejemplo.com/inicio"}, follow=True)
     html = res.content.decode()
     assert res.status_code == 200
     assert 'id="resultado-nivel">Ten cuidado</h1>' in html
