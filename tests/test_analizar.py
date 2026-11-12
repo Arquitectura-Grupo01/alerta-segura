@@ -12,7 +12,7 @@ from django.template.loader import render_to_string
 from django.test import Client
 from django.urls import reverse
 
-from analisis import destino, edad, views
+from analisis import destino, edad, orquestador
 from analisis.destino import Destino
 from core import net
 from motor.explicacion import ACLARACION_SEGURO, SIN_DESTINO, aviso_para_compartir, explicar
@@ -24,8 +24,13 @@ ENLACE_PELIGROSO = "http://192.0.2.10/verifica"
 ENLACE_PELIGRO_ALTO = "https://banco.pe@a.b.c.d.bit.ly/verifica"
 
 
+# Cada análisis deja su fila en la base.
+pytestmark = pytest.mark.django_db
+
+
 def _analizar(client, enlace):
-    return client.post(reverse("analizar"), {"enlace": enlace})
+    """Envía el formulario y sigue la redirección hasta la página de resultado."""
+    return client.post(reverse("analizar"), {"enlace": enlace}, follow=True)
 
 
 @pytest.mark.parametrize(
@@ -239,7 +244,8 @@ def test_si_la_direccion_de_destino_no_se_puede_leer_se_analiza_el_enlace_pegado
     client, monkeypatch
 ):
     monkeypatch.setattr(
-        views, "seguir_enlace", lambda url: Destino(net.RESULTADO_OK, "https://otra.example/a b", 1)
+        orquestador, "seguir_enlace",
+        lambda url: Destino(net.RESULTADO_OK, "https://otra.example/a b", 1),
     )
     html = _analizar(client, ENLACE_TEN_CUIDADO).content.decode()
     assert f"<dd>{SIN_DESTINO}</dd>" in html

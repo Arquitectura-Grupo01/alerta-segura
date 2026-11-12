@@ -1,75 +1,62 @@
-from django.shortcuts import render
-from django.views.decorators.http import require_POST
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+from django.views.decorators.http import require_GET, require_POST
 
-from analisis.destino import seguir_enlace
-from analisis.edad import edad_en_dias
-from analisis.heuristicas import HEURISTICAS, detectar_senales
+from analisis.models import Analisis
 from analisis.normalizacion import LARGO_MAXIMO, URLInvalida, normalizar
+from analisis.orquestador import Ocupado, analizar_enlace, estados_de, senales_de
 from core.entrada import ANALISIS, limitar
-from inteligencia.fuentes import consultar_fuentes, fuentes_activas, resumir
-from motor.explicacion import Recorrido, aviso_para_compartir, explicar
-from motor.riesgo import Nivel, Senales, calcular
+from motor.explicacion import (
+    OCUPADO,
+    Recorrido,
+    aviso_para_compartir,
+    explicar,
+    hace_cuanto,
+)
+from motor.riesgo import Nivel, calcular
+
+ESPERA_SI_OCUPADO_SEGUNDOS = 10
 
 
 @require_POST
 @limitar(ANALISIS)
 def analizar(request):
-    """Analiza un enlace y muestra el resultado.
+    """Recibe un enlace, lo analiza y redirige a la página de su resultado.
 
-    Sigue las redirecciones desde el servidor, revisa la dirección del enlace y la del
-    destino, busca la edad de las dos webs y consulta las fuentes externas activas.
-    Todavía no hay ninguna fuente, catálogo de marcas ni caché: la cobertura queda por
-    debajo de 70 % y el resultado nunca es Seguro.
-    El orquestador de la tarea 25 reemplazará esta vista por el flujo POST, redirect y GET
-    hacia `/resultado/<uuid>/`.
+    POST, redirect y GET: al recargar el resultado no se envía el formulario otra vez.
     """
     texto = request.POST.get("enlace", "")[:LARGO_MAXIMO + 1]
     try:
         enlace = normalizar(texto)
     except URLInvalida as error:
         # Los mensajes de URLInvalida están escritos para la persona y no traen datos internos.
-        respuesta = render(
-            request,
-            "inicio.html",
-            {"error": str(error), "enlace": texto[:LARGO_MAXIMO]},
-            status=400,
-        )
-        respuesta["Cache-Control"] = "no-store"
+        return _volver_al_inicio(request, str(error), texto, estado=400)
+    try:
+        analisis = analizar_enlace(enlace)
+    except Ocupado:
+        respuesta = _volver_al_inicio(request, OCUPADO, texto, estado=503)
+        respuesta["Retry-After"] = str(ESPERA_SI_OCUPADO_SEGUNDOS)
         return respuesta
+    return redirect("resultado", publico=analisis.publico)
 
-    destino = seguir_enlace(enlace.url_con_parametros)
-    final = _enlace_final(destino.url)
-    encontradas = set(detectar_senales(enlace))
-    if final is not None:
-        encontradas.update(detectar_senales(final))
-    dominio = final.dominio if final is not None else enlace.dominio
-    # A las fuentes va la dirección de destino sin parámetros de rastreo.
-    activas = fuentes_activas()
-    respuestas = consultar_fuentes(activas, (final or enlace).url)
-    fuentes = resumir(respuestas)
-    estado_de_fuentes = tuple(
-        (fuente.titulo or fuente.nombre, respuesta.estado.value)
-        for fuente, respuesta in zip(activas, respuestas, strict=True)
-    )
-    senales = Senales(
-        tipo_entrada="enlace",
-        # En el orden del registro, para que los motivos salgan siempre en el mismo orden.
-        heuristicas=tuple(codigo for codigo in HEURISTICAS if codigo in encontradas),
-        edad_dias=edad_en_dias([enlace.dominio, dominio]),
-        fuentes=fuentes.valor,
-        fuentes_con_deteccion=fuentes.confirmaciones,
-    )
-    recorrido = Recorrido(
-        saltos=destino.saltos if final is not None else None,
-        desde=enlace.dominio if dominio != enlace.dominio else "",
-    )
-    veredicto = calcular(senales)
+
+@require_GET
+def resultado(request, publico):
+    """Muestra un análisis guardado. Quien no tiene su identificador no puede verlo."""
+    analisis = get_object_or_404(Analisis, publico=publico)
+    # Con las mismas señales y la misma versión de reglas, el motor da el mismo veredicto.
+    veredicto = calcular(senales_de(analisis))
+    recorrido = Recorrido(analisis.redirecciones, analisis.dominio_origen)
+    explicacion = explicar(veredicto, analisis.dominio, recorrido, estados_de(analisis.fuentes))
+    segundos = (timezone.now() - analisis.fecha_analisis).total_seconds()
     contexto = {
         "veredicto": veredicto,
         "nivel": veredicto.nivel,
-        "explicacion": explicar(veredicto, dominio, recorrido, estado_de_fuentes),
-        "dominio": dominio,
-        "aviso": aviso_para_compartir(veredicto, dominio),
+        "explicacion": explicacion,
+        "dominio": analisis.dominio,
+        "aviso": aviso_para_compartir(veredicto, analisis.dominio),
+        "fecha": analisis.fecha_analisis,
+        "hace": hace_cuanto(segundos) if analisis.desde_cache else "",
         "mostrar_guia": veredicto.nivel >= Nivel.TEN_CUIDADO,
     }
     respuesta = render(request, "resultado.html", contexto)
@@ -78,11 +65,9 @@ def analizar(request):
     return respuesta
 
 
-def _enlace_final(url: str):
-    """La URL donde terminó el enlace, leída como la lee el navegador. None si no hay."""
-    if not url:
-        return None
-    try:
-        return normalizar(url)
-    except URLInvalida:
-        return None
+def _volver_al_inicio(request, error, texto, estado):
+    respuesta = render(
+        request, "inicio.html", {"error": error, "enlace": texto[:LARGO_MAXIMO]}, status=estado
+    )
+    respuesta["Cache-Control"] = "no-store"
+    return respuesta

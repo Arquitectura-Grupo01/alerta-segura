@@ -10,7 +10,7 @@
 {# El dominio se muestra como texto: nunca es un enlace clicable. #}
 <section class="pagina-resultado" aria-labelledby="resultado-nivel">
   <div class="contenedor">
-    <p class="resultado-contexto">Resultado del análisis</p>
+    <p class="resultado-contexto">{% if hace %}Analizado {{ hace }}{% else %}Resultado del análisis{% endif %}</p>
     <article class="resultado resultado-principal nivel-{{ nivel.clave }}">
       <div class="resultado-nivel">
         <svg aria-hidden="true" focusable="false" width="36" height="36"><use href="#i-{{ nivel.clave }}"/></svg>
@@ -43,6 +43,7 @@
             {% for termino, valor, nota in explicacion.detalle %}
             <div><dt>{{ termino }}<span class="detalle-nota">{{ nota }}</span></dt><dd>{{ valor }}</dd></div>
             {% endfor %}
+            {% if fecha %}<div><dt>Fecha del análisis<span class="detalle-nota">Una web puede cambiar después de esta fecha.</span></dt><dd>{{ fecha|date:"j \d\e F \d\e Y, H:i" }}</dd></div>{% endif %}
           </dl>
           <div class="detalle-senales">
             <h3 class="detalle-subtitulo">Señales en la dirección</h3>

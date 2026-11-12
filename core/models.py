@@ -79,3 +79,24 @@ class EventoAuditoria(models.Model):
 
     def __str__(self):
         return f"{self.fecha:%Y-%m-%d %H:%M} {self.tipo}"
+
+
+class InvalidacionDominio(models.Model):
+    """Cuántas veces se invalidaron los resultados guardados de un dominio.
+
+    Cada resultado de la caché anota el contador de sus dominios al guardarse. Subirlo
+    deja sin efecto todos los resultados de ese dominio sin recorrer la caché. Va en una
+    tabla y no en la caché: si el contador volviera a cero, porque venció o porque la
+    tabla de caché borró filas, reaparecerían los resultados invalidados.
+    """
+
+    dominio = models.CharField(max_length=255, unique=True)
+    contador = models.PositiveIntegerField(default=0)
+    actualizado = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "invalidación de dominio"
+        verbose_name_plural = "invalidaciones de dominio"
+
+    def __str__(self):
+        return f"{self.dominio}: {self.contador}"

@@ -6,10 +6,11 @@ Las reglas de contribución, para personas y agentes de IA, están en [AGENTS.md
 
 ## Estado actual
 
-El repositorio contiene la base del sistema, el pipeline y un primer análisis de enlaces, todavía sin fuentes externas, catálogo de marcas ni caché de resultados.
+El repositorio contiene la base del sistema, el pipeline y un primer análisis de enlaces, todavía sin catálogo de marcas ni consola interna.
 
 Implementado:
 
+- Orquestador, registro y caché de resultados. `/analizar` busca primero un resultado vigente; si no hay, analiza, lo guarda y redirige a `/resultado/<uuid>/`, que tiene un identificador aleatorio. Cada consulta deja una fila en `Analisis` con el dominio, el nivel, el puntaje, las señales y el estado de cada fuente. La URL completa se guarda solo con Peligroso o Peligro alto. La caché (`core/resultados.py` lee y `motor/cache.py` escribe) usa como clave el SHA-256 de la URL normalizada más la versión de reglas y dura 72 h, 24 h o 6 h según el nivel. Invalidar un dominio sube un contador en una tabla y deja sin efecto todos sus resultados. Una entrada que no coincide con sus señales se descarta. `manage.py cargar_datos_demo` crea análisis ficticios.
 - Análisis de enlaces (`analisis/` y `motor/`). `/analizar` lee el enlace como lo lee el navegador y lo sigue desde el servidor con `pedir_url`, hasta 3 redirecciones en total contando las de `<meta http-equiv="refresh">` y la cabecera `Refresh`. Revisa con heurísticas locales la dirección pegada y la de destino, y busca por RDAP la edad de las dos webs. Manda la más nueva; un dominio sin RDAP, como los `.pe`, un acortador o un alojamiento compartido como netlify.app no dan edad. `motor` calcula el nivel y lo explica con 3 a 5 motivos. Sin fuentes externas la cobertura no llega a 70 % y el resultado nunca es Seguro.
 - Interfaz común de las fuentes externas (`inteligencia/fuentes.py`). Cada proveedor será una subclase de `Fuente` que responde detección, sin detecciones, desconocido o falló. Sin detecciones exige un análisis del proveedor de las últimas 24 h; si es más viejo, cuenta como desconocido. La clase base pone el circuit breaker, que se abre al tercer fallo seguido y reintenta a los 5 minutos, la cuota diaria y el presupuesto global por hora. `consultar_fuentes` las llama en paralelo con un plazo total, y el análisis sigue aunque fallen todas. Las respuestas crudas van a una caché técnica aparte, 24 h como máximo, y `inteligencia/claves.py` quita las claves de API de los logs. El detalle técnico del resultado dice el estado de cada fuente consultada.
 - Google Safe Browsing v5 (`inteligencia/safe_browsing.py`), la primera fuente. Se consulta por prefijo de hash: a Google llegan 4 bytes del SHA-256 de cada forma de la dirección y nunca la URL. Es una lista de bloqueo, así que una dirección que no figura queda como desconocida y no como limpia. Se activa al definir `SAFE_BROWSING_API_KEY`; sin la clave se omite. Licencia: gratis solo para uso no comercial. Cuota: 10 000 consultas al día por proyecto. La respuesta en JSON (`alt=json`) falta probarla con una clave real.
@@ -25,12 +26,12 @@ Implementado:
 - Settings por ambiente (`dev`, `test`, `prod`) leídos de variables de entorno. `prod` activa la redirección a HTTPS, cookies `Secure`, HSTS, `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy` y TLS obligatorio hacia PostgreSQL.
 - Admin de Django en una ruta configurable.
 - Celery configurado con Redis como broker, sin tareas definidas.
-- Caché compartida entre procesos (`config/settings/cache.py`): Redis en local y una tabla de PostgreSQL con tope de 5000 filas en Render. La caché técnica de las fuentes externas va en otra tabla, para que sus respuestas no desplacen a los contadores del rate limit. `scripts/entrypoint.sh` crea la tabla con `createcachetable` al arrancar. Los tests usan `LocMemCache`.
+- Caché compartida entre procesos (`config/settings/cache.py`): Redis en local y una tabla de PostgreSQL con tope de 5000 filas en Render. La caché técnica de las fuentes externas y la de resultados van en otras dos tablas, para que no desplacen a los contadores del rate limit. `scripts/entrypoint.sh` crea la tabla con `createcachetable` al arrancar. Los tests usan `LocMemCache`.
 - Imagen Docker multi-stage que se ejecuta con un usuario sin privilegios. En local y en el CI la aplicación entra a PostgreSQL con un rol sin superusuario.
 - Auditoría de solo agregar (`core/models.py`, `core/auditoria.py`): el modelo `EventoAuditoria` rechaza editar y borrar, también en bloque, y el admin lo muestra solo de lectura. Las demás apps registran con `registrar_evento(tipo, usuario=..., objeto=..., motivo=..., detalle=...)`, que enmascara los textos y rechaza IP y URLs. Todavía no hay trigger en PostgreSQL ni cadena de hashes.
 - Enmascarado de datos personales (`core/enmascarado.py`): `enmascarar(texto)` reemplaza de forma irreversible tarjetas, CCI, cuentas, teléfonos, DNI, correos y montos por marcadores como `[DNI]`. Normaliza con NFKC y quita caracteres invisibles para que no se esquive, corta el texto a 20 000 caracteres y usa expresiones sin cuantificadores anidados. `FiltroEnmascarado` lo aplica a todo mensaje de log, a sus argumentos y a las trazas, y `registrar_evento` lo aplica a lo que guarda.
 - Pipeline de GitHub Actions con tests, cobertura, análisis estático, auditoría de dependencias, detección de secretos, escaneo de la imagen, despliegue a Dev y Prod, smoke test y DAST.
-- 600 tests en `tests/` sobre los endpoints de salud, la página de inicio, la CSP y las demás cabeceras de seguridad, la política de salida, la capa de entrada, las páginas de error, la caché, la auditoría, el enmascarado, las conexiones salientes, el análisis de enlaces, las fuentes externas, la guía y los settings.
+- 642 tests en `tests/` sobre los endpoints de salud, la página de inicio, la CSP y las demás cabeceras de seguridad, la política de salida, la capa de entrada, las páginas de error, la caché, la auditoría, el enmascarado, las conexiones salientes, el análisis de enlaces, las fuentes externas, la guía, el orquestador con su caché y los settings.
 
 Planificado según el informe del Hito 1, sin código todavía:
 
@@ -56,7 +57,7 @@ Monolito modular en Django 5.2: una sola aplicación, una sola imagen Docker y s
 | `catalogo` | Marcas peruanas, dominios oficiales y variantes de suplantación, con versiones | Sin implementar |
 | `curacion` | Cola de reportes, campañas e invalidación de resultados | Sin implementar |
 
-`catalogo` y `curacion` tienen solo su estructura. Ellas, `inteligencia` y `motor`, que todavía no tienen modelos, no están en `INSTALLED_APPS`.
+`catalogo` y `curacion` tienen solo su estructura. Ellas, `inteligencia` y `motor`, que no tienen modelos, no están en `INSTALLED_APPS`.
 
 En la nube la aplicación corre en Render, con dos servicios (Dev y Prod) que usan la misma imagen, y PostgreSQL en Neon. El plan gratuito de Render no tiene workers, por eso allí Celery corre en modo eager (`CELERY_EAGER`). En local, `docker-compose.yml` levanta PostgreSQL, Redis, la aplicación y un worker de Celery.
 

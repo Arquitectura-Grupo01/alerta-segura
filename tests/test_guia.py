@@ -104,8 +104,10 @@ def test_el_inicio_y_la_cabecera_enlazan_a_la_guia(client):
     "http://192.0.2.10/verifica",
     "https://banco.pe@a.b.c.d.bit.ly/verifica",
 ])
+@pytest.mark.django_db
 def test_todo_resultado_desde_ten_cuidado_enlaza_a_la_guia(client, enlace):
-    resultado = client.post(reverse("analizar"), {"enlace": enlace}).content.decode()
+    respuesta = client.post(reverse("analizar"), {"enlace": enlace}, follow=True)
+    resultado = respuesta.content.decode()
     assert ">Seguro</h1>" not in resultado
     for situacion in SITUACIONES:
         assert f'href="/guia/#{situacion}"' in resultado
