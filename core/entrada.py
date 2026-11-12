@@ -5,6 +5,7 @@ HMAC de su IP (salted_hmac con SECRET_KEY) y expira solo, así que un volcado de
 caché no revela quién usó la plataforma.
 """
 import ipaddress
+import math
 import time
 from functools import wraps
 from typing import NamedTuple
@@ -78,13 +79,20 @@ def clave_de_ip(ip: str) -> str:
 
 
 def _contar(clave: str, ventana_segundos: int) -> int:
-    """Suma 1 al contador y devuelve el total. El contador expira solo."""
-    cache.add(clave, 0, timeout=ventana_segundos)
-    try:
-        return cache.incr(clave)
-    except ValueError:  # expiró entre el add y el incr
-        cache.set(clave, 1, timeout=ventana_segundos)
-        return 1
+    """Suma 1 al contador de la ventana y devuelve el total. El contador expira solo.
+
+    La ventana empieza con la primera solicitud. No se usa cache.incr: en DatabaseCache,
+    la caché de Render, incr guarda de nuevo con la vigencia por defecto de 300 s, y
+    tras 5 minutos sin solicitudes el contador volvía a cero. Aquí cada escritura lleva
+    la vigencia que le queda a la ventana.
+    """
+    ahora = time.time()
+    inicio, total = cache.get(clave, (ahora, 0))
+    if ahora >= inicio + ventana_segundos:
+        inicio, total = ahora, 0
+    total += 1
+    cache.set(clave, (inicio, total), timeout=math.ceil(inicio + ventana_segundos - ahora))
+    return total
 
 
 def limitar(politica: Politica):
