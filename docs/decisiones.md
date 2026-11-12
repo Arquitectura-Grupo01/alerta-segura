@@ -38,3 +38,6 @@ Registro de lo que el equipo decidió y de lo que falta decidir. Una decisión d
 | Plazos de retención de datos | 40 | Análisis y reportes, 12 meses; auditoría, un año como mínimo |
 | Habilitar el modelo de lenguaje | 51 | Solo si el set de regresión muestra que mejora la detección |
 | Diseño de la consulta de números telefónicos | 54 | Decidir después del registro estadístico |
+| Modo oscuro de la interfaz, con degradados solo como luz, en lugar del fondo claro que pide AGENTS.md | 6, 26 | Aceptarlo, porque está en producción desde el PR #16. Después, cambiar en AGENTS.md los colores y la regla de degradados, y decidir en la tarea 6 si el CSS sigue propio o pasa a Tailwind |
+| Trigger de PostgreSQL que impide editar o borrar la auditoría | 9 | Sí, en un PR aparte. Lo crea el rol de la app, que es dueño de la tabla, sin superusuario |
+| Si un dominio que no resuelve cuenta como destino bloqueado en la auditoría | 11, 39 | No. Pasa a diario con páginas falsas ya dadas de baja y dispararía la alerta de picos de bloqueos. Devolverlo como un resultado aparte y sin evento |
