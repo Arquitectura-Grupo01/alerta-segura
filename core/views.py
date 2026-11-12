@@ -41,3 +41,9 @@ def ready(request):
 
 def inicio(request):
     return render(request, "inicio.html")
+
+
+@require_GET
+def guia(request):
+    """Guía para quien ya hizo clic, dio datos o pagó. Texto fijo: no pide ni recibe datos."""
+    return render(request, "guia.html")

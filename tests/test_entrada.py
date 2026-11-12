@@ -11,7 +11,7 @@ from django.http import HttpResponse
 from django.test import RequestFactory
 from django.urls import reverse
 
-from analisis import views as vistas_analisis
+from analisis import orquestador as vistas_analisis
 from config.settings.cache import construir_caches
 from core import entrada, net
 from core.entrada import (
@@ -25,6 +25,9 @@ from core.entrada import (
     ip_del_cliente,
     limitar,
 )
+
+# Un análisis que pasa el límite se guarda en la base.
+pytestmark = pytest.mark.django_db
 
 IP_A = "203.0.113.9"
 IP_B = "198.51.100.7"
@@ -121,9 +124,10 @@ def test_el_analisis_31_recibe_429_sin_llamar_a_ninguna_fuente(client, monkeypat
     senales = mock.Mock(side_effect=vistas_analisis.detectar_senales)
     monkeypatch.setattr(net, "pedir_url", pedir)
     monkeypatch.setattr(vistas_analisis, "detectar_senales", senales)
-    for _ in range(30):
-        assert analizar(client).status_code == 200
-    respuesta = analizar(client)
+    # Un enlace distinto cada vez: uno repetido saldría de la caché sin correr las señales.
+    for numero in range(30):
+        assert analizar(client, enlace=f"https://ejemplo.invalid/{numero}").status_code == 302
+    respuesta = analizar(client, enlace="https://ejemplo.invalid/30")
     assert respuesta.status_code == 429
     assert respuesta["Retry-After"] == "600"
     assert respuesta["Cache-Control"] == "no-store"
@@ -137,20 +141,20 @@ def test_otra_ip_tiene_su_propio_contador(client):
     for _ in range(30):
         analizar(client, IP_A)
     assert analizar(client, IP_A).status_code == 429
-    assert analizar(client, IP_B).status_code == 200
+    assert analizar(client, IP_B).status_code == 302
 
 
 def test_dos_ipv6_del_mismo_64_comparten_el_contador(client):
     for _ in range(30):
-        assert analizar(client, "2001:db8:1:2::1").status_code == 200
+        assert analizar(client, "2001:db8:1:2::1").status_code == 302
     assert analizar(client, "2001:db8:1:2:ffff::9").status_code == 429
-    assert analizar(client, "2001:db8:1:3::1").status_code == 200
+    assert analizar(client, "2001:db8:1:3::1").status_code == 302
 
 
 def test_un_get_no_cuenta_para_el_limite(client):
     for _ in range(40):
         assert client.get(reverse("analizar"), REMOTE_ADDR=IP_A).status_code == 405
-    assert analizar(client).status_code == 200
+    assert analizar(client).status_code == 302
 
 
 def test_una_solicitud_con_x_forwarded_for_falsificado_no_evade_el_limite(client, settings):
@@ -161,7 +165,7 @@ def test_una_solicitud_con_x_forwarded_for_falsificado_no_evade_el_limite(client
             reverse("analizar"), {"enlace": "https://ejemplo.invalid/a"},
             REMOTE_ADDR="10.0.0.1", HTTP_X_FORWARDED_FOR=cabecera,
         )
-        assert respuesta.status_code == 200
+        assert respuesta.status_code == 302
     respuesta = client.post(
         reverse("analizar"), {"enlace": "https://ejemplo.invalid/a"},
         REMOTE_ADDR="10.0.0.1", HTTP_X_FORWARDED_FOR=f"9.9.9.99, {IP_A}, 172.64.0.1",

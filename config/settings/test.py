@@ -12,6 +12,10 @@ CACHES = {
         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
         "LOCATION": "tecnica",
     },
+    "resultados": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "resultados",
+    },
 }
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},

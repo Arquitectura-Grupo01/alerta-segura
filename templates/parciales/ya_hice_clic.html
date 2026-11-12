@@ -1,5 +1,5 @@
 {# Guía para quien ya hizo clic. La usa inicio y también el resultado, desde Ten cuidado. #}
-{# Las páginas de la guía todavía no existen (tarea 28). #}
+{# Cada situación lleva a su sección de la guía (templates/guia.html). #}
 <section class="seccion seccion-ya" id="ya-hice-clic" aria-labelledby="ya-titulo">
   <div class="contenedor">
     <div class="ya">
@@ -9,11 +9,11 @@
         <p class="consejo"><b>Llama a tu banco con el número de tu tarjeta o de su app.</b> Nunca uses el número que vino en el mensaje.</p>
       </div>
       <ul class="situaciones">
-        <li><a href="/guia/#hice-clic"><span class="situacion"><span class="situacion-titulo">Hice clic en el enlace</span><span class="situacion-pista">Qué revisar si solo lo abriste</span></span><svg aria-hidden="true" focusable="false" width="22" height="22"><use href="#i-flecha"/></svg></a></li>
-        <li><a href="/guia/#di-mis-datos"><span class="situacion"><span class="situacion-titulo">Escribí mis datos o mis claves</span><span class="situacion-pista">Cambia tus claves y avisa a tu banco</span></span><svg aria-hidden="true" focusable="false" width="22" height="22"><use href="#i-flecha"/></svg></a></li>
-        <li><a href="/guia/#pague"><span class="situacion"><span class="situacion-titulo">Pagué o transferí, también por Yape o Plin</span><span class="situacion-pista">Llama a tu banco cuanto antes</span></span><svg aria-hidden="true" focusable="false" width="22" height="22"><use href="#i-flecha"/></svg></a></li>
-        <li><a href="/guia/#instale-una-app"><span class="situacion"><span class="situacion-titulo">Instalé una app que me enviaron</span><span class="situacion-pista">Desinstálala y revisa tus cuentas</span></span><svg aria-hidden="true" focusable="false" width="22" height="22"><use href="#i-flecha"/></svg></a></li>
-        <li><a href="/guia/#codigo-whatsapp"><span class="situacion"><span class="situacion-titulo">Compartí el código de verificación de WhatsApp</span><span class="situacion-pista">Recupera tu cuenta y activa la verificación en dos pasos</span></span><svg aria-hidden="true" focusable="false" width="22" height="22"><use href="#i-flecha"/></svg></a></li>
+        <li><a href="{% url 'guia' %}#hice-clic"><span class="situacion"><span class="situacion-titulo">Hice clic en el enlace</span><span class="situacion-pista">Qué revisar si solo lo abriste</span></span><svg aria-hidden="true" focusable="false" width="22" height="22"><use href="#i-flecha"/></svg></a></li>
+        <li><a href="{% url 'guia' %}#di-mis-datos"><span class="situacion"><span class="situacion-titulo">Escribí mis datos o mis claves</span><span class="situacion-pista">Cambia tus claves y avisa a tu banco</span></span><svg aria-hidden="true" focusable="false" width="22" height="22"><use href="#i-flecha"/></svg></a></li>
+        <li><a href="{% url 'guia' %}#pague"><span class="situacion"><span class="situacion-titulo">Pagué o transferí, también por Yape o Plin</span><span class="situacion-pista">Llama a tu banco cuanto antes</span></span><svg aria-hidden="true" focusable="false" width="22" height="22"><use href="#i-flecha"/></svg></a></li>
+        <li><a href="{% url 'guia' %}#instale-una-app"><span class="situacion"><span class="situacion-titulo">Instalé una app que me enviaron</span><span class="situacion-pista">Desinstálala y revisa tus cuentas</span></span><svg aria-hidden="true" focusable="false" width="22" height="22"><use href="#i-flecha"/></svg></a></li>
+        <li><a href="{% url 'guia' %}#codigo-whatsapp"><span class="situacion"><span class="situacion-titulo">Compartí el código de verificación de WhatsApp</span><span class="situacion-pista">Recupera tu cuenta y activa la verificación en dos pasos</span></span><svg aria-hidden="true" focusable="false" width="22" height="22"><use href="#i-flecha"/></svg></a></li>
       </ul>
     </div>
   </div>
