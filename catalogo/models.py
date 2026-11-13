@@ -97,7 +97,7 @@ class DominioOficial(models.Model):
             models.UniqueConstraint(
                 fields=["reemplaza_a"],
                 condition=models.Q(
-                    estado="PENDIENTE",
+                    estado="pendiente",
                     reemplaza_a__isnull=False,
                 ),
                 name="unico_reemplazo_pendiente",
