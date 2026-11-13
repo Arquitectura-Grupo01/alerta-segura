@@ -30,6 +30,18 @@
           {% for accion in explicacion.acciones %}<li>{{ accion }}</li>
           {% endfor %}
         </ol>
+        {% if explicacion.marca.canales %}
+        <div class="canales-oficiales">
+          <h3 class="canales-titulo">Canales oficiales de {{ explicacion.marca.nombre }}</h3>
+          <dl>
+            {% for tipo, valor in explicacion.marca.canales %}<div><dt>{{ tipo }}</dt><dd>{{ valor }}</dd></div>
+            {% endfor %}
+          </dl>
+        </div>
+        {% endif %}
+        {% if explicacion.modalidad %}
+        <p class="resultado-modalidad">{{ explicacion.modalidad.1 }} <a href="{% url 'modalidades' %}#{{ explicacion.modalidad.0 }}">Mira cómo funciona</a></p>
+        {% endif %}
         {% if aviso %}
         {# Aparece solo si el navegador puede compartir o copiar: lo decide resultado.js. #}
         <div class="avisar" data-avisar hidden>
@@ -89,6 +101,24 @@
         </details>
       </div>
     </article>
+    {% comment %}
+    Reporte de desacuerdo (tarea 29). Va al análisis y nunca a la persona, y no cambia este
+    resultado: por eso el agradecimiento no promete cambios.
+    {% endcomment %}
+    <section class="desacuerdo" id="reporte" aria-labelledby="reporte-titulo">
+      {% if reporte %}
+      <h2 class="desacuerdo-titulo" id="reporte-titulo">Gracias por contarnos</h2>
+      <p class="desacuerdo-texto">Una persona del equipo va a revisar este resultado.{% if reporte == "era_estafa" %} Si ya diste tus datos o pagaste, <a href="{% if mostrar_guia %}#ya-hice-clic{% else %}{% url 'guia' %}{% endif %}">sigue estos pasos</a>.{% endif %}</p>
+      {% else %}
+      <h2 class="desacuerdo-titulo" id="reporte-titulo">¿Sabes si era una estafa?</h2>
+      <p class="desacuerdo-texto">Si ya lo confirmaste, cuéntanos. Una persona del equipo revisa cada aviso.</p>
+      <form class="desacuerdo-opciones" method="post" action="{% url 'reportar' publico %}">
+        <button class="boton-reporte" type="submit" name="tipo" value="era_estafa">Sí, era estafa</button>
+        <button class="boton-reporte" type="submit" name="tipo" value="era_legitimo">No, era legítimo</button>
+        {% csrf_token %}
+      </form>
+      {% endif %}
+    </section>
     <p class="resultado-otro">
       <a class="boton-analizar" href="{% url 'inicio' %}">Analizar otro enlace<svg aria-hidden="true" focusable="false" width="18" height="18"><use href="#i-flecha"/></svg></a>
     </p>

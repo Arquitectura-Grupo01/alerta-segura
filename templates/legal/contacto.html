@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block titulo %}Mi web aparece por error. Alerta Segura{% endblock %}
+{% block descripcion %}Si eres dueño de una web y crees que Alerta Segura la marcó por error, pídenos que la revisemos.{% endblock %}
+
+{% block contenido %}
+{% comment %}
+   Tareas 29 y 32. El pedido entra pendiente a la misma cola que los reportes de
+   desacuerdo y no cambia ningún veredicto. No pedimos correo: el pie promete que no
+   pedimos nombre, número ni correo. Lo recibe curacion.views.solicitar_revision.
+{% endcomment %}
+<article class="guia legal">
+  <div class="contenedor">
+    <header class="guia-cabecera">
+      <p class="guia-ruta"><a href="{% url 'inicio' %}">Inicio</a><span aria-hidden="true">/</span>Mi web aparece por error</p>
+      <h1>Mi web aparece por error</h1>
+      <p class="guia-intro">Si eres dueño de una web y crees que la marcamos por error, cuéntanos. Una persona del equipo revisa cada pedido.</p>
+    </header>
+
+    <section class="guia-caso" aria-labelledby="t-antes">
+      <h2 id="t-antes">Antes de escribirnos</h2>
+      <ul class="guia-lista">
+        <li>Abre el detalle técnico del resultado: ahí ves qué servicio de seguridad la tiene reportada.</li>
+        <li>Si un servicio la reporta, pide también la revisión en ese servicio. Mientras siga reportada, el resultado no cambia.</li>
+        <li>Si tu web fue atacada, límpiala antes. Una web real con una página falsa adentro también es un peligro.</li>
+      </ul>
+    </section>
+
+    <section class="guia-caso" id="formulario" aria-labelledby="t-formulario">
+      <h2 id="t-formulario">Pide la revisión</h2>
+      {% if enviado %}
+      <div class="contacto-gracias" role="status">
+        <p><b>Recibimos tu pedido.</b> Una persona del equipo va a revisar la web.</p>
+        <p class="guia-nota">No te pedimos correo, así que no podremos responderte. Vuelve a analizar la web dentro de unos días para ver el resultado.</p>
+      </div>
+      {% else %}
+      <form class="contacto" method="post" action="{% url 'solicitar_revision' %}" novalidate>
+        <p class="guia-nota">No escribas tu nombre, tu correo ni tu teléfono. Si lo haces, los tapamos antes de guardar el mensaje.</p>
+        <label class="etiqueta" for="dominio">Tu web</label>
+        <input class="contacto-campo mono" id="dominio" name="dominio" type="text" inputmode="url" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="2048" placeholder="ejemplo.com" value="{{ dominio }}"{% if errores.dominio %} aria-invalid="true" aria-describedby="error-dominio"{% endif %}>
+        {% if errores.dominio %}<p class="mensaje" id="error-dominio" data-tipo="error">{{ errores.dominio }}</p>{% endif %}
+        <label class="etiqueta" for="mensaje">Por qué crees que es un error</label>
+        <textarea class="contacto-campo" id="mensaje" name="mensaje" rows="5" maxlength="{{ max_mensaje }}" aria-describedby="mensaje-ayuda{% if errores.mensaje %} error-mensaje{% endif %}"{% if errores.mensaje %} aria-invalid="true"{% endif %}>{{ mensaje }}</textarea>
+        <p class="guia-nota" id="mensaje-ayuda">Hasta {{ max_mensaje }} caracteres. Por ejemplo: qué es tu web y si ya pediste la revisión en algún servicio.</p>
+        {% if errores.mensaje %}<p class="mensaje" id="error-mensaje" data-tipo="error">{{ errores.mensaje }}</p>{% endif %}
+        <button class="boton-reporte" type="submit">Enviar pedido</button>
+        {% csrf_token %}
+      </form>
+      {% endif %}
+    </section>
+  </div>
+</article>
+{% endblock %}

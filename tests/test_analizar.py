@@ -4,6 +4,7 @@ import functools
 import json
 import re
 import socket
+import uuid
 from datetime import UTC, datetime, timedelta
 
 import httpx
@@ -153,6 +154,7 @@ def _renderizar(senales):
             "explicacion": explicar(veredicto, "ejemplo.com"),
             "dominio": "ejemplo.com",
             "mostrar_guia": veredicto.nivel >= Nivel.TEN_CUIDADO,
+            "publico": uuid.uuid4(),
         },
     )
 

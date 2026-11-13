@@ -1,2 +1,2 @@
-"""Proximo sprint: cola de reportes de desacuerdo, agrupacion en campanas e
-invalidacion de resultados. Un reporte nunca cambia un veredicto por si solo."""
+"""Curación: reportes de desacuerdo y, más adelante, la cola del analista, la invalidación
+manual y las campañas. Un reporte nunca cambia un veredicto por sí solo."""

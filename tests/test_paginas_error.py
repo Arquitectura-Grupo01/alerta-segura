@@ -33,6 +33,11 @@ urlpatterns = [
     # Las páginas de error enlazan al inicio y a la guía con {% url %}.
     path("", lambda request: HttpResponse("inicio"), name="inicio"),
     path("guia/", lambda request: HttpResponse("guia"), name="guia"),
+    # Las páginas que enlaza el pie de base.html.
+    *(
+        path(f"{nombre}/", lambda request: HttpResponse(""), name=nombre)
+        for nombre in ("privacidad", "terminos", "como_verificamos", "contacto", "modalidades")
+    ),
     path("falla/", vista_con_error),
     path("prohibida/", vista_prohibida),
     path("mal-formada/", vista_mal_formada),

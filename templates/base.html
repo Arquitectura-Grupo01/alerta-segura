@@ -28,6 +28,7 @@
       <a class="marca" href="{% url 'inicio' %}">Alerta Segura</a>
       <nav class="nav" aria-label="Principal">
         <a class="solo-amplio" href="{% url 'inicio' %}#niveles">Cómo leer el resultado</a>
+        <a class="solo-amplio" href="{% url 'modalidades' %}"{% block modalidades_actual %}{% endblock %}>Estafas frecuentes</a>
         <a href="{% url 'guia' %}"{% block guia_actual %}{% endblock %}>Ya hice clic</a>
       </nav>
     </div>
@@ -51,10 +52,11 @@
       <nav aria-labelledby="pie-paginas">
         <h2 class="pie-titulo" id="pie-paginas">Más información</h2>
         <ul class="pie-enlaces">
-          <li><a href="/privacidad/">Privacidad</a></li>
-          <li><a href="/terminos/">Términos de uso</a></li>
-          <li><a href="/como-verificamos/">Cómo verificamos</a></li>
-          <li><a href="/contacto/">Mi web aparece por error</a></li>
+          <li><a href="{% url 'modalidades' %}">Estafas frecuentes</a></li>
+          <li><a href="{% url 'privacidad' %}">Privacidad</a></li>
+          <li><a href="{% url 'terminos' %}">Términos de uso</a></li>
+          <li><a href="{% url 'como_verificamos' %}">Cómo verificamos</a></li>
+          <li><a href="{% url 'contacto' %}">Mi web aparece por error</a></li>
         </ul>
       </nav>
     </div>

@@ -43,6 +43,8 @@ INSTALLED_APPS = [
     "core",
     "analisis",
     "catalogo.apps.CatalogoConfig",
+    "curacion",
+    "motor",
     "django_otp",
     "django_otp.plugins.otp_totp",
 ]
@@ -116,6 +118,9 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Ruta del admin configurable: /admin/ recibe escaneo automatizado constante.
 ADMIN_PATH = env("DJANGO_ADMIN_PATH", default="admin/")
+# El único dominio desde el que se sirve Alerta Segura en producción. Las páginas legales
+# lo muestran para que nadie confunda una copia con la original. Vacío en local.
+DOMINIO_OFICIAL = env("ALERTA_DOMINIO_OFICIAL", default="")
 
 # Content-Security-Policy: solo recursos propios y nada en línea. Si un texto de
 # un ciudadano llegara sin escapar a una página, el navegador no lo ejecutaría.

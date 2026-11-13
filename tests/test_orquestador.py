@@ -116,7 +116,7 @@ def test_cada_dato_de_las_estadisticas_tiene_su_campo(client, fuente):
 def test_el_modelo_no_tiene_campos_para_ip_texto_ni_imagenes():
     campos = {campo.name for campo in Analisis._meta.get_fields()}
     assert not campos & {"ip", "texto", "imagen", "captura", "mensaje", "usuario"}
-    indices = {campo.name for campo in Analisis._meta.get_fields() if campo.db_index}
+    indices = {campo.name for campo in Analisis._meta.fields if campo.db_index}
     assert {"fecha", "tipo_entrada", "nivel", "dominio"} <= indices
 
 

@@ -46,7 +46,10 @@ class Analisis(models.Model):
     reglas = models.JSONField(default=list)
     # Una entrada por fuente consultada: nombre, título y estado.
     fuentes = models.JSONField(default=list)
+    # Nombre de la marca del catálogo que imita, si imita a una.
     marca_suplantada = models.CharField(max_length=100, blank=True)
+    # Clave de `motor.modalidades` que sugieren las palabras de la dirección. Es una pista.
+    modalidad = models.CharField(max_length=40, blank=True)
     desde_cache = models.BooleanField(default=False)
     # Queda vacío hasta el registro estadístico.
     departamento = models.CharField(max_length=40, blank=True)

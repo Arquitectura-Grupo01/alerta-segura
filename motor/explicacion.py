@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from types import MappingProxyType
 
+from motor.modalidades import POR_CLAVE as MODALIDADES
 from motor.riesgo import (
     EDAD,
     FUENTES,
@@ -56,7 +57,7 @@ MOTIVOS_REGLA = MappingProxyType({
     "analista_confirma": "Nuestro equipo revisó esta web y confirmó que es una estafa.",
     "una_fuente_confirma": "Una lista de seguridad la tiene reportada como página falsa o "
     "peligrosa.",
-    "suplantacion_en_web_nueva": "Imita a una marca conocida en una web creada hace {edad}.",
+    "suplantacion_en_web_nueva": "Imita a {marca} en una web creada hace {edad}.",
     "credenciales_con_urgencia": "Te pide claves o un pago con prisa o con amenazas.",
     "web_nueva": "La web se creó hace {edad}. Muchas estafas usan webs recién creadas.",
     "fuente_no_concluyente": "Un servicio de seguridad la marca como peligrosa, pero no dice "
@@ -96,10 +97,8 @@ MOTIVOS_SENAL = MappingProxyType({
     "para esconderlo.",
     "palabras_sospechosas": "La dirección usa palabras como «verifica» o «login», típicas de "
     "las páginas falsas que piden claves.",
-    "marca_en_subdominio": "Usa el nombre de una marca conocida, pero la web que abre es "
-    "{dominio}.",
-    "dominio_parecido": "Su nombre se parece mucho al de una marca conocida, pero no es su web "
-    "oficial.",
+    "marca_en_subdominio": "Usa el nombre de {marca}, pero la web que abre es {dominio}.",
+    "dominio_parecido": "Su nombre se parece mucho al de {marca}, pero no es su web oficial.",
 })
 
 # Nombre y explicación de una línea de cada señal, para el detalle técnico.
@@ -180,6 +179,15 @@ TITULAR = MappingProxyType({
     Nivel.PELIGRO_ALTO: "Varias pruebas confirman que es peligrosa. No la abras.",
 })
 TITULAR_SIN_HALLAZGOS = "No podemos confirmar que sea segura."
+# Seguro por puntaje, pero con algún truco en la dirección: el titular no lo niega.
+TITULAR_SEGURO_CON_SENALES = "Ningún servicio la reporta, pero su dirección tiene algo raro."
+TITULAR_IMITA = "Imita a una marca en una web recién creada. No la abras."
+TITULAR_ANALISTA = "Nuestro equipo confirmó que es una estafa. No la abras."
+MARCA_SIN_NOMBRE = "una marca conocida"
+# La modalidad sale de las palabras de la dirección: es una pista, y se dice así.
+PISTA_MODALIDAD = "Por las palabras de su dirección, puede ser la estafa «{titulo}»."
+USA_CANAL_OFICIAL = "Si querías entrar a {marca}, usa solo sus canales oficiales: los ves abajo."
+ESCRIBE_LA_OFICIAL = "Si querías entrar a {marca}, escribe tú su dirección oficial o usa su app."
 # El titular solo afirma lo que la evidencia respalda.
 TITULAR_REPORTADA = "Está reportada como peligrosa. No la abras."
 TITULAR_EN_DUDA = "Los servicios de seguridad no se ponen de acuerdo sobre esta web."
@@ -215,7 +223,7 @@ ANTIVIRUS_LIMPIA = "{nombre} la revisó con {total} antivirus y ninguno la marca
 WEB_ANTIGUA = "La web existe hace {edad}. Las estafas suelen usar webs creadas hace pocos días."
 WEB_DE_MESES = "La web se creó hace {edad}."
 NO_IMITA_MARCAS = "No imita el nombre de los bancos y tiendas que tenemos registrados."
-IMITA_SIN_SENAL = "Usa el nombre de una marca conocida, pero no es su web oficial."
+IMITA_SIN_SENAL = "Usa el nombre de {marca}, pero no es su web oficial."
 DIRECCION_NORMAL = (
     "La dirección está escrita de forma normal, sin trucos para parecerse a otra web."
 )
@@ -377,6 +385,15 @@ class Recorrido:
 
 
 @dataclass(frozen=True)
+class Marca:
+    """La marca que imita la web, con sus canales oficiales verificados del catálogo."""
+
+    nombre: str
+    # (tipo de canal, valor), por ejemplo («Aplicación móvil», «App de Banco de Prueba»).
+    canales: tuple[tuple[str, str], ...] = ()
+
+
+@dataclass(frozen=True)
 class FuenteConsultada:
     nombre: str
     estado: str
@@ -406,6 +423,10 @@ class Explicacion:
     calculo: tuple[tuple[str, str, str], ...] = ()
     # Servicios de seguridad consultados. Un grupo sin servicios no aparece.
     fuentes: tuple[GrupoDeFuentes, ...] = ()
+    # (clave, frase) de la modalidad que sugiere la dirección, si se muestra.
+    modalidad: tuple[str, str] | None = None
+    # La marca imitada y sus canales oficiales, si se muestran.
+    marca: Marca | None = None
 
 
 def explicar(
@@ -414,6 +435,8 @@ def explicar(
     recorrido: Recorrido | None = None,
     fuentes: tuple[tuple[str, str], ...] = (),
     detalles: Mapping[str, dict] | None = None,
+    modalidad: str = "",
+    marca: Marca | None = None,
 ) -> Explicacion:
     """Arma la explicación de un veredicto.
 
@@ -421,12 +444,30 @@ def explicar(
     detalle técnico dice cuántas redirecciones hubo. `fuentes` trae el nombre y el
     estado de cada servicio de seguridad consultado, y `detalles`, lo que contó cada
     uno, por nombre. Los detalles duran un día: sin ellos queda solo el estado.
+
+    `modalidad` es la clave de `motor.modalidades` que sugiere la dirección y `marca`, la
+    marca del catálogo que imita. Solo se muestran desde Ten cuidado y con algún hallazgo:
+    en un resultado sin nada en contra serían una acusación sin pruebas.
     """
     detalles = detalles or {}
+    con_hallazgos = veredicto.nivel >= Nivel.TEN_CUIDADO and _hay_hallazgos(veredicto)
+    elegida = MODALIDADES.get(modalidad) if con_hallazgos else None
+    marca = marca if con_hallazgos and marca and marca.nombre else None
+    nombre_marca = marca.nombre if marca else MARCA_SIN_NOMBRE
+    acciones = [accion.format(dominio=dominio) for accion in ACCIONES[veredicto.nivel]]
+    if elegida:
+        acciones.insert(1, elegida.accion)
+    if marca:
+        aviso = USA_CANAL_OFICIAL if marca.canales else ESCRIBE_LA_OFICIAL
+        acciones.insert(1, aviso.format(marca=marca.nombre))
     return Explicacion(
         titular=_titular(veredicto),
-        motivos=_motivos(veredicto, dominio, fuentes, detalles),
-        acciones=tuple(accion.format(dominio=dominio) for accion in ACCIONES[veredicto.nivel]),
+        motivos=_motivos(veredicto, dominio, fuentes, detalles, nombre_marca),
+        acciones=tuple(acciones),
+        modalidad=(
+            (elegida.clave, PISTA_MODALIDAD.format(titulo=elegida.titulo)) if elegida else None
+        ),
+        marca=marca,
         aclaracion=ACLARACION_SEGURO if veredicto.nivel == Nivel.SEGURO else None,
         senales=tuple(
             DETALLE_SENAL[codigo]
@@ -668,12 +709,31 @@ def _sin_hallazgos(veredicto: Veredicto) -> bool:
     )
 
 
+def _hay_hallazgos(veredicto: Veredicto) -> bool:
+    """Algo concreto en contra: una señal, una web nueva, una suplantación o un reporte."""
+    senales = veredicto.senales
+    return bool(
+        senales.heuristicas
+        or senales.fuentes_con_deteccion
+        or senales.confirmado_por_analista
+        or (senales.marca or 0) > 0
+        or (veredicto.valores.get(FUENTES) or 0) > 0
+        or "web_nueva" in veredicto.reglas
+    )
+
+
 def _titular(veredicto: Veredicto) -> str:
     """La frase que resume el resultado. Solo afirma lo que la evidencia respalda."""
     if _sin_hallazgos(veredicto):
         return TITULAR_SIN_HALLAZGOS
+    if veredicto.nivel == Nivel.SEGURO and veredicto.senales.heuristicas:
+        return TITULAR_SEGURO_CON_SENALES
+    if veredicto.senales.confirmado_por_analista and not veredicto.senales.fuentes_con_deteccion:
+        return TITULAR_ANALISTA
     if veredicto.nivel == Nivel.PELIGROSO and veredicto.senales.fuentes_con_deteccion:
         return TITULAR_REPORTADA
+    if veredicto.nivel == Nivel.PELIGROSO and "suplantacion_en_web_nueva" in veredicto.reglas:
+        return TITULAR_IMITA
     if veredicto.nivel == Nivel.TEN_CUIDADO and not veredicto.senales.heuristicas:
         if "fuente_no_concluyente" in veredicto.reglas:
             return TITULAR_EN_DUDA
@@ -687,9 +747,10 @@ def _motivos(
     dominio: str,
     fuentes: tuple[tuple[str, str], ...] = (),
     detalles: Mapping[str, dict] | None = None,
+    marca: str = MARCA_SIN_NOMBRE,
 ) -> tuple[str, ...]:
     detalles = detalles or {}
-    datos = {"dominio": dominio, "edad": _edad(veredicto.senales.edad_dias)}
+    datos = {"dominio": dominio, "edad": _edad(veredicto.senales.edad_dias), "marca": marca}
     reemplazadas = {
         reemplazada
         for regla in veredicto.reglas
@@ -851,7 +912,7 @@ def _lo_revisado(
         if marca == 0 and not peligro:
             motivos.append(NO_IMITA_MARCAS)
         elif marca and not SENALES_DE_MARCA & set(veredicto.senales.heuristicas):
-            motivos.append(IMITA_SIN_SENAL)
+            motivos.append(IMITA_SIN_SENAL.format(**datos))
 
     if valores.get(HEURISTICAS) == 0 and not peligro:
         motivos.append(DIRECCION_NORMAL)

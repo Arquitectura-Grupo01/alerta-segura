@@ -11,18 +11,23 @@ from analisis.orquestador import (
     estados_de,
     senales_de,
 )
+from catalogo.models import CanalOficial
 from core.entrada import ANALISIS, limitar
 from motor.explicacion import (
     NOTA_FUENTES,
     OCUPADO,
+    Marca,
     Recorrido,
     aviso_para_compartir,
     explicar,
     hace_cuanto,
 )
+from motor.modalidades import MODALIDADES
 from motor.riesgo import Nivel, calcular
 
 ESPERA_SI_OCUPADO_SEGUNDOS = 10
+# Los valores de `curacion.models.ReporteDesacuerdo.Tipo`. Esta app no importa de curacion.
+REPORTES_RECIBIDOS = ("era_estafa", "era_legitimo")
 
 
 @require_POST
@@ -60,6 +65,8 @@ def resultado(request, publico):
         recorrido,
         estados_de(analisis.fuentes),
         detalles_de(analisis),
+        modalidad=analisis.modalidad,
+        marca=_marca(analisis.marca_suplantada),
     )
     segundos = (timezone.now() - analisis.fecha_analisis).total_seconds()
     contexto = {
@@ -72,11 +79,38 @@ def resultado(request, publico):
         "fecha": analisis.fecha_analisis,
         "hace": hace_cuanto(segundos) if analisis.desde_cache else "",
         "mostrar_guia": veredicto.nivel >= Nivel.TEN_CUIDADO,
+        "publico": analisis.publico,
+        # Tras enviar un reporte, la página agradece en lugar de mostrar otra vez las opciones.
+        "reporte": _reporte_recibido(request),
     }
     respuesta = render(request, "resultado.html", contexto)
     # El resultado lleva el dominio que pegó la persona: ni el navegador ni un proxy lo guardan.
     respuesta["Cache-Control"] = "no-store"
     return respuesta
+
+
+def _reporte_recibido(request) -> str:
+    reporte = request.GET.get("reporte", "")
+    return reporte if reporte in REPORTES_RECIBIDOS else ""
+
+
+def _marca(nombre: str) -> Marca | None:
+    """La marca imitada con sus canales oficiales activos. Se lee al mostrar el resultado:
+    un canal que el catálogo corrige se ve corregido también en resultados anteriores."""
+    if not nombre:
+        return None
+    canales = CanalOficial.objects.filter(
+        marca__nombre=nombre, marca__activa=True, activo=True
+    ).exclude(tipo=CanalOficial.Tipo.REPORTE)
+    return Marca(
+        nombre, tuple((canal.get_tipo_display(), canal.valor) for canal in canales)
+    )
+
+
+@require_GET
+def modalidades(request):
+    """Página de las estafas frecuentes en el Perú. Texto fijo: no recibe datos."""
+    return render(request, "modalidades.html", {"modalidades": MODALIDADES})
 
 
 def _volver_al_inicio(request, error, texto, estado):

@@ -1388,7 +1388,8 @@ svg {
 /* Botón secundario del resultado. Solo borde, para no competir con el nivel. */
 .avisar { margin-top: 22px; }
 
-.boton-avisar {
+.boton-avisar,
+.boton-reporte {
   width: 100%;
   min-height: 48px;
   padding: 0 18px;
@@ -1402,7 +1403,8 @@ svg {
   transition: background-color 0.15s, border-color 0.15s;
 }
 
-.boton-avisar:hover {
+.boton-avisar:hover,
+.boton-reporte:hover {
   border-color: rgba(255, 255, 255, 0.22);
   background: rgba(255, 255, 255, 0.05);
 }
@@ -1416,7 +1418,47 @@ svg {
 .avisar-estado:empty { display: none; }
 
 @media (min-width: 560px) {
-  .boton-avisar { width: auto; }
+  .boton-avisar,
+  .boton-reporte { width: auto; }
+}
+
+/* Reporte de desacuerdo: debajo del resultado, separado por una línea y sin caja propia. */
+.desacuerdo {
+  max-width: 46rem;
+  margin-top: 40px;
+  padding-top: 28px;
+  border-top: 1px solid var(--linea-suave);
+}
+
+.desacuerdo-titulo {
+  color: var(--texto);
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.desacuerdo-texto {
+  margin-top: 8px;
+  color: var(--cuerpo);
+}
+
+.desacuerdo-texto a {
+  color: var(--texto);
+  text-decoration-color: var(--secundario);
+  text-underline-offset: 3px;
+}
+
+.desacuerdo-opciones {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+@media (min-width: 560px) {
+  .desacuerdo-opciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
 }
 
 .resultado-otro { margin-top: 32px; }
@@ -1673,3 +1715,98 @@ svg {
 @media (min-width: 640px) {
   .guia-volver .boton-analizar { width: auto; }
 }
+
+/* Formulario para dueños de webs (página de contacto). */
+.contacto {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.contacto .etiqueta { margin-top: 14px; }
+
+.contacto-campo {
+  width: 100%;
+  min-height: 52px;
+  padding: 13px 14px;
+  border: 1px solid var(--linea);
+  border-radius: 12px;
+  background: var(--superficie);
+  color: var(--texto);
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+textarea.contacto-campo { resize: vertical; }
+
+.contacto-campo:focus-visible {
+  outline: none;
+  border-color: rgba(var(--luz), 0.6);
+  box-shadow: 0 0 0 3px rgba(var(--luz), 0.2);
+}
+
+.contacto-campo[aria-invalid="true"] { border-color: var(--error); }
+
+.contacto .boton-reporte { margin-top: 18px; }
+
+.contacto-gracias {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+  padding: 18px 20px;
+  border: 1px solid var(--linea);
+  border-radius: 12px;
+}
+
+@media (min-width: 560px) {
+  .contacto .boton-reporte { justify-self: start; }
+}
+
+/* Resultado: pista de modalidad y canales oficiales de la marca imitada. */
+.resultado-modalidad {
+  margin-top: 18px;
+  color: var(--cuerpo);
+  line-height: 1.5;
+}
+
+.resultado-modalidad a,
+.guia-pie a {
+  color: var(--texto);
+  text-underline-offset: 3px;
+}
+
+.canales-oficiales {
+  margin-top: 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--linea);
+  border-radius: 12px;
+}
+
+.canales-titulo {
+  color: var(--texto);
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+
+.canales-oficiales dl { margin: 8px 0 0; }
+
+.canales-oficiales dl > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 16px;
+  padding: 6px 0;
+}
+
+.canales-oficiales dt { color: var(--secundario); }
+
+.canales-oficiales dd {
+  margin: 0;
+  color: var(--texto);
+  overflow-wrap: anywhere;
+}
+
+.guia-caso .guia-rotulo { margin-top: 22px; }
+
+.guia-pie { margin-top: 56px; max-width: 44rem; }
