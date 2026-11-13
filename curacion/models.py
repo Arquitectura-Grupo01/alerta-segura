@@ -38,3 +38,32 @@ class ReporteDesacuerdo(models.Model):
 
     def __str__(self):
         return f"{self.get_tipo_display()} sobre {self.analisis}"
+
+
+class SolicitudRevision(models.Model):
+    """Pedido del dueño de una web que cree que la marcamos por error.
+
+    Entra pendiente a la misma cola que los reportes de desacuerdo y, como ellos, no
+    cambia ningún veredicto por sí solo. No guarda quién lo envía: el mensaje se guarda
+    con correos, teléfonos, DNI, cuentas y montos enmascarados.
+    """
+
+    MAX_MENSAJE = 1000
+
+    class Estado(models.TextChoices):
+        PENDIENTE = "pendiente", "Pendiente"
+        RESUELTO = "resuelto", "Resuelto"
+
+    dominio = models.CharField(max_length=253)
+    mensaje = models.TextField(max_length=MAX_MENSAJE * 2)
+    estado = models.CharField(max_length=10, choices=Estado.choices, default=Estado.PENDIENTE)
+    fecha = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        verbose_name = "pedido de revisión"
+        verbose_name_plural = "pedidos de revisión"
+        ordering = ["-fecha"]
+        indexes = [models.Index(fields=["estado", "fecha"], name="solicitud_estado_fecha")]
+
+    def __str__(self):
+        return f"Revisión de {self.dominio}"

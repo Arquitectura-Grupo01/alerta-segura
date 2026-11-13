@@ -1715,3 +1715,50 @@ svg {
 @media (min-width: 640px) {
   .guia-volver .boton-analizar { width: auto; }
 }
+
+/* Formulario para dueños de webs (página de contacto). */
+.contacto {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.contacto .etiqueta { margin-top: 14px; }
+
+.contacto-campo {
+  width: 100%;
+  min-height: 52px;
+  padding: 13px 14px;
+  border: 1px solid var(--linea);
+  border-radius: 12px;
+  background: var(--superficie);
+  color: var(--texto);
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+textarea.contacto-campo { resize: vertical; }
+
+.contacto-campo:focus-visible {
+  outline: none;
+  border-color: rgba(var(--luz), 0.6);
+  box-shadow: 0 0 0 3px rgba(var(--luz), 0.2);
+}
+
+.contacto-campo[aria-invalid="true"] { border-color: var(--error); }
+
+.contacto .boton-reporte { margin-top: 18px; }
+
+.contacto-gracias {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+  padding: 18px 20px;
+  border: 1px solid var(--linea);
+  border-radius: 12px;
+}
+
+@media (min-width: 560px) {
+  .contacto .boton-reporte { justify-self: start; }
+}

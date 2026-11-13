@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block titulo %}Privacidad. Alerta Segura{% endblock %}
+{% block descripcion %}Qué guarda Alerta Segura cuando revisas un enlace, por cuánto tiempo, a quién se lo consulta y qué nunca guarda.{% endblock %}
+
+{% block contenido %}
+{% comment %}
+   Tarea 32. Cada dato de esta página sale del código; si cambia lo que se guarda o su
+   plazo, se cambia aquí en el mismo PR. Plazos: rate limit en core/entrada.py, caché
+   técnica en inteligencia/fuentes.py, caché de resultados en motor/cache.py.
+{% endcomment %}
+<article class="guia legal">
+  <div class="contenedor">
+    <header class="guia-cabecera">
+      <p class="guia-ruta"><a href="{% url 'inicio' %}">Inicio</a><span aria-hidden="true">/</span>Privacidad</p>
+      <h1>Privacidad</h1>
+      <p class="guia-intro">Para revisar un enlace no necesitamos saber quién eres. No pedimos tu nombre, tu número ni tu correo, y no hay cuentas ni registro.</p>
+    </header>
+
+    <section class="guia-caso" aria-labelledby="t-guardamos">
+      <h2 id="t-guardamos">Qué guardamos de cada análisis</h2>
+      <ul class="guia-lista">
+        <li>La fecha, el nivel de riesgo y el puntaje.</li>
+        <li>El nombre de la web que abre el enlace y, si pasa antes por otra dirección, el de la primera.</li>
+        <li>Las señales que encontramos y lo que respondió cada servicio de seguridad: si la tiene reportada, si no tiene datos o si no respondió.</li>
+        <li>La dirección completa, solo si el resultado es Peligroso o Peligro alto. En los demás casos guardamos solo el nombre de la web, porque una dirección puede traer datos tuyos.</li>
+      </ul>
+      <p>Con esto mejoramos las reglas y vemos qué estafas circulan. Nada de esto dice quién hizo la consulta.</p>
+    </section>
+
+    <section class="guia-caso" aria-labelledby="t-otros">
+      <h2 id="t-otros">Otros datos que guardamos</h2>
+      <ul class="guia-lista">
+        <li><b>Si nos dices que el resultado está mal:</b> qué opción elegiste, la fecha y de qué análisis se trata. No guardamos nada sobre ti.</li>
+        <li><b>Si eres dueño de una web y nos pides revisarla:</b> el nombre de la web y tu mensaje. Si escribes un correo, un teléfono, un DNI, una cuenta o un monto, lo tapamos antes de guardarlo.</li>
+        <li><b>Lo que sabemos de cada web:</b> sus señales propias, como los trucos en su dirección o si imita a una marca. De una dirección guardamos solo una huella que no permite leerla.</li>
+      </ul>
+    </section>
+
+    <section class="guia-caso" aria-labelledby="t-tiempo">
+      <h2 id="t-tiempo">Por cuánto tiempo</h2>
+      <dl class="guia-canales">
+        <div><dt>Huella de tu conexión</dt><dd>Una hora. Sirve para limitar cuántas consultas llegan desde un mismo lugar. Es un código que no permite saber tu dirección IP, y la IP no se guarda.</dd></div>
+        <div><dt>Respuestas de los servicios de seguridad</dt><dd>Hasta 24 horas.</dd></div>
+        <div><dt>Resultado listo para la siguiente consulta</dt><dd>De 6 a 72 horas, según el nivel. Así respondemos más rápido sin volver a preguntar a los servicios.</dd></div>
+        <div><dt>Análisis, reportes y pedidos de revisión</dt><dd>Todavía no se borran solos. Cuando el equipo fije el plazo, lo publicaremos en esta página.</dd></div>
+      </dl>
+    </section>
+
+    <section class="guia-caso" aria-labelledby="t-servicios">
+      <h2 id="t-servicios">A quién consultamos</h2>
+      <p>Para revisar una dirección preguntamos a servicios de seguridad de otras empresas. Cada uno recibe solo lo que necesita, sin ningún dato tuyo.</p>
+      <ul class="guia-lista">
+        <li><b>Google Safe Browsing:</b> un pedazo del código de la dirección. Google no recibe la dirección.</li>
+        <li><b>VirusTotal y urlscan.io:</b> la dirección, sin los datos de rastreo publicitario, y el nombre de la web.</li>
+        <li><b>URLhaus y PhishTank:</b> la dirección, sin los datos de rastreo publicitario.</li>
+        <li><b>AbuseIPDB:</b> solo el número del servidor donde está la web.</li>
+      </ul>
+      <p class="guia-nota">Nunca mandamos la dirección a escanear: solo preguntamos si ya la conocen. Así no queda publicada en ningún sitio.</p>
+    </section>
+
+    <section class="guia-caso" aria-labelledby="t-nunca">
+      <h2 id="t-nunca">Lo que nunca guardamos</h2>
+      <ul class="guia-lista">
+        <li>Tu nombre, tu número, tu correo o tu dirección IP.</li>
+        <li>Cookies de rastreo. La única cookie protege los formularios contra ataques.</li>
+        <li>Contraseñas o códigos. No los necesitamos: si alguna vez los escribes por error, borra el texto.</li>
+      </ul>
+      <p class="guia-nota">El servicio donde funciona la plataforma puede registrar datos técnicos de cada conexión para operar, según sus propias políticas.</p>
+    </section>
+
+    <section class="guia-caso" aria-labelledby="t-derechos">
+      <h2 id="t-derechos">Tus derechos</h2>
+      <p>La Ley N.° 29733, de Protección de Datos Personales, te da derecho a saber qué datos tuyos se guardan y a pedir que se corrijan o se borren. Como no guardamos nada que te identifique, no podemos relacionar ningún registro contigo.</p>
+      <p>Alerta Segura es un proyecto académico del curso Arquitectura de Aplicaciones de la UPC. No es una empresa y no vende datos.</p>
+    </section>
+  </div>
+</article>
+{% endblock %}

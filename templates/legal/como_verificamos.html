@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block titulo %}Cómo verificamos un enlace. Alerta Segura{% endblock %}
+{% block descripcion %}Qué revisa Alerta Segura en cada enlace, qué servicios de seguridad consulta, cómo decide el nivel y qué no puede ver.{% endblock %}
+
+{% block contenido %}
+{% comment %}
+   Tarea 32. Las reglas que se describen aquí están en motor/riesgo.py y en
+   docs/decisiones.md. No se publican pesos ni umbrales exactos: no hace falta para
+   entender el resultado y se los regalaría a quien quiere esquivarlos.
+{% endcomment %}
+<article class="guia legal">
+  <div class="contenedor">
+    <header class="guia-cabecera">
+      <p class="guia-ruta"><a href="{% url 'inicio' %}">Inicio</a><span aria-hidden="true">/</span>Cómo verificamos</p>
+      <h1>Cómo verificamos un enlace</h1>
+      <p class="guia-intro">Revisamos el enlace desde nuestro servidor, sin abrirlo en tu celular, y juntamos varias pruebas antes de darte un nivel.</p>
+    </header>
+
+    <section class="guia-caso" aria-labelledby="t-pasos">
+      <h2 id="t-pasos">Qué revisamos</h2>
+      <ol class="pasos">
+        <li><b>La dirección.</b> Buscamos trucos para que parezca otra web: números en lugar de un nombre, letras de otros alfabetos, un nombre antes de «@» o muchas palabras antes del nombre real.</li>
+        <li><b>A dónde lleva.</b> Seguimos el enlace hasta tres saltos, también los enlaces acortados, para saber qué web abre de verdad.</li>
+        <li><b>La edad de la web.</b> La consultamos en el registro público de dominios. Muchas estafas usan webs creadas hace pocos días.</li>
+        <li><b>Si imita a una marca.</b> Comparamos el nombre con las webs oficiales de bancos, billeteras y entidades del Estado que tenemos registradas.</li>
+        <li><b>Servicios de seguridad.</b> Preguntamos si ya la tienen reportada como página falsa o como web con programas dañinos.</li>
+      </ol>
+    </section>
+
+    <section class="guia-caso" aria-labelledby="t-servicios">
+      <h2 id="t-servicios">Servicios de seguridad que consultamos</h2>
+      <dl class="guia-canales">
+        <div><dt>Google Safe Browsing</dt><dd>Lista de páginas falsas y de webs con programas dañinos de Google.</dd></div>
+        <div><dt>URLhaus</dt><dd>Direcciones que reparten programas dañinos.</dd></div>
+        <div><dt>PhishTank</dt><dd>Páginas falsas que su comunidad verificó.</dd></div>
+        <div><dt>VirusTotal</dt><dd>La revisión de decenas de antivirus. Cuenta como reporte solo cuando varios coinciden en el tipo de amenaza.</dd></div>
+        <div><dt>urlscan.io</dt><dd>Revisiones anteriores de la página, con su veredicto y dónde está alojada.</dd></div>
+        <div><dt>AbuseIPDB</dt><dd>Reportes de abuso contra el servidor donde está la web.</dd></div>
+      </dl>
+      <p class="guia-nota">Si un servicio no responde o no tiene datos, eso no cuenta como web limpia.</p>
+    </section>
+
+    <section class="guia-caso" aria-labelledby="t-nivel">
+      <h2 id="t-nivel">Cómo decidimos el nivel</h2>
+      <p>Cada prueba suma puntos y el total da uno de cuatro niveles: Seguro, Ten cuidado, Peligroso o Peligro alto. Algunas pruebas fijan un nivel mínimo:</p>
+      <ul class="guia-lista">
+        <li>Si un servicio la tiene reportada, sale Peligroso como mínimo. Si son dos, Peligro alto.</li>
+        <li>Si nuestro equipo confirmó que es una estafa, sale Peligro alto.</li>
+        <li>Una web creada hace menos de 30 días nunca sale Seguro.</li>
+        <li>Si no pudimos revisar lo suficiente, nunca decimos Seguro.</li>
+        <li>Si un servicio la marca pero no dice de qué tipo es la amenaza, sale Ten cuidado hasta que otra prueba lo aclare.</li>
+      </ul>
+      <p>Con las mismas pruebas, el resultado es siempre el mismo. En el detalle técnico de cada resultado ves qué encontramos.</p>
+    </section>
+
+    <section class="guia-caso" aria-labelledby="t-limites">
+      <h2 id="t-limites">Lo que no podemos ver</h2>
+      <ul class="guia-lista">
+        <li>Algunas páginas falsas muestran una cosa a los revisores y otra a las personas. A eso se le llama cloaking.</li>
+        <li>Una estafa recién creada puede no estar reportada en ningún servicio todavía.</li>
+        <li>Una web real puede ser atacada y usada para una estafa sin que nadie lo haya notado aún.</li>
+        <li>No vemos lo que la página te pide después de entrar, ni lo que te dicen por chat o por teléfono.</li>
+        <li>El resultado vale para esa dirección, no para todas las páginas de la misma web.</li>
+      </ul>
+      <p>Por eso el resultado orienta pero no garantiza. Si algo te parece raro, confirma por el canal oficial.</p>
+    </section>
+
+    <section class="guia-caso" aria-labelledby="t-oficial">
+      <h2 id="t-oficial">La web oficial de Alerta Segura</h2>
+      {% if dominio_oficial %}
+      <p>Solo funcionamos en <b class="mono">{{ dominio_oficial }}</b>. Una copia en otra dirección puede usar nuestro nombre para engañarte.</p>
+      {% else %}
+      <p>Funcionamos en una sola dirección. Una copia en otra puede usar nuestro nombre para engañarte.</p>
+      {% endif %}
+    </section>
+  </div>
+</article>
+{% endblock %}

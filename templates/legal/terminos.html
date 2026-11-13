@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block titulo %}Términos de uso. Alerta Segura{% endblock %}
+{% block descripcion %}Qué puedes esperar de Alerta Segura y qué no: orienta antes de actuar, pero no garantiza ni reemplaza a tu banco, a la policía ni a un abogado.{% endblock %}
+
+{% block contenido %}
+<article class="guia legal">
+  <div class="contenedor">
+    <header class="guia-cabecera">
+      <p class="guia-ruta"><a href="{% url 'inicio' %}">Inicio</a><span aria-hidden="true">/</span>Términos de uso</p>
+      <h1>Términos de uso</h1>
+      <p class="guia-intro">Alerta Segura es gratis y no pide registro. Al usarla aceptas estas condiciones.</p>
+    </header>
+
+    <section class="guia-caso" aria-labelledby="t-orienta">
+      <h2 id="t-orienta">Orienta, no garantiza</h2>
+      <p>El resultado es una orientación con la información que tenemos en ese momento. Una web que hoy sale Seguro puede cambiar mañana, y una estafa nueva puede no estar reportada todavía.</p>
+      <p>Si algo te parece raro, confía en eso aunque el resultado diga Seguro. Confirma siempre por el canal oficial: la app de tu banco o el número que está en tu tarjeta.</p>
+    </section>
+
+    <section class="guia-caso" aria-labelledby="t-reemplaza">
+      <h2 id="t-reemplaza">No reemplaza a nadie</h2>
+      <ul class="guia-lista">
+        <li>No reemplaza a tu banco. Si diste tus claves o pagaste, llama al banco.</li>
+        <li>No reemplaza a la policía. Una estafa se denuncia en la Policía Nacional.</li>
+        <li>No recupera dinero ni da asesoría legal. Para eso están tu banco, INDECOPI o un abogado.</li>
+      </ul>
+    </section>
+
+    <section class="guia-caso" aria-labelledby="t-uso">
+      <h2 id="t-uso">Uso permitido</h2>
+      <ul class="guia-lista">
+        <li>Revisar enlaces que recibiste o que quieres compartir.</li>
+        <li>No escribas contraseñas, claves ni códigos. No los necesitamos.</li>
+        <li>No uses programas para hacer consultas en masa ni para saltar los límites: desde un mismo lugar se pueden hacer hasta 30 consultas cada 10 minutos.</li>
+        <li>No intentes atacar la plataforma. Si encuentras una falla de seguridad, repórtala como indica nuestro <a href="{% url 'security_txt' %}">security.txt</a>.</li>
+      </ul>
+    </section>
+
+    <section class="guia-caso" aria-labelledby="t-oficial">
+      <h2 id="t-oficial">La web oficial</h2>
+      {% if dominio_oficial %}
+      <p>El único dominio oficial de Alerta Segura es <b class="mono">{{ dominio_oficial }}</b>. Si ves esta plataforma en otra dirección, es una copia: no escribas nada en ella.</p>
+      {% else %}
+      <p>Alerta Segura funciona en una sola dirección. Si ves esta plataforma en otra, es una copia: no escribas nada en ella.</p>
+      {% endif %}
+    </section>
+
+    <section class="guia-caso" aria-labelledby="t-datos">
+      <h2 id="t-datos">Datos de otros servicios</h2>
+      <p>Parte de la información viene de servicios de seguridad de otras empresas, que la permiten para usos no comerciales. Mostramos lo que dicen, pero no respondemos por sus errores.</p>
+      <p>Si eres dueño de una web y crees que la marcamos por error, <a href="{% url 'contacto' %}">pídenos que la revisemos</a>.</p>
+    </section>
+  </div>
+</article>
+{% endblock %}
