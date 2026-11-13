@@ -32,6 +32,9 @@ def iniciar_registro_totp(*, usuario):
 def confirmar_registro_totp(*, usuario, dispositivo_id, codigo):
     """Confirma un dispositivo TOTP con un código válido."""
 
+    if transaction.get_connection().in_atomic_block:
+        raise RuntimeError("La confirmación TOTP debe ejecutarse fuera de una transacción externa.")
+
     if (
         usuario is None
         or not usuario.is_authenticated

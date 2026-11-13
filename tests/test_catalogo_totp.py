@@ -42,7 +42,7 @@ def test_usuario_normal_no_puede_registrar(usuario_normal):
     assert TOTPDevice.objects.count() == 0
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_codigo_valido_confirma_dispositivo(administrador):
     dispositivo = iniciar_registro_totp(usuario=administrador)
 
@@ -61,7 +61,7 @@ def test_codigo_valido_confirma_dispositivo(administrador):
     assert dispositivo.confirmed is True
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_codigo_incorrecto_no_confirma(administrador):
     dispositivo = iniciar_registro_totp(usuario=administrador)
 
@@ -128,3 +128,31 @@ def test_totp_registro_conserva_intento_fallido():
 
     assert dispositivo.confirmed is False
     assert dispositivo.throttling_failure_count == 1
+
+
+@pytest.mark.django_db(transaction=True)
+def test_totp_rechaza_transaccion_externa(administrador):
+    from django.db import transaction
+
+    dispositivo = iniciar_registro_totp(usuario=administrador)
+
+    codigo = str(
+        totp(
+            dispositivo.bin_key,
+            step=dispositivo.step,
+            digits=dispositivo.digits,
+        )
+    ).zfill(6)
+
+    with transaction.atomic():
+        with pytest.raises(RuntimeError, match="transacción externa"):
+            confirmar_registro_totp(
+                usuario=administrador,
+                dispositivo_id=dispositivo.pk,
+                codigo=codigo,
+            )
+
+    dispositivo.refresh_from_db()
+
+    assert dispositivo.confirmed is False
+    assert dispositivo.last_t == -1
