@@ -1388,7 +1388,8 @@ svg {
 /* Botón secundario del resultado. Solo borde, para no competir con el nivel. */
 .avisar { margin-top: 22px; }
 
-.boton-avisar {
+.boton-avisar,
+.boton-reporte {
   width: 100%;
   min-height: 48px;
   padding: 0 18px;
@@ -1402,7 +1403,8 @@ svg {
   transition: background-color 0.15s, border-color 0.15s;
 }
 
-.boton-avisar:hover {
+.boton-avisar:hover,
+.boton-reporte:hover {
   border-color: rgba(255, 255, 255, 0.22);
   background: rgba(255, 255, 255, 0.05);
 }
@@ -1416,7 +1418,47 @@ svg {
 .avisar-estado:empty { display: none; }
 
 @media (min-width: 560px) {
-  .boton-avisar { width: auto; }
+  .boton-avisar,
+  .boton-reporte { width: auto; }
+}
+
+/* Reporte de desacuerdo: debajo del resultado, separado por una línea y sin caja propia. */
+.desacuerdo {
+  max-width: 46rem;
+  margin-top: 40px;
+  padding-top: 28px;
+  border-top: 1px solid var(--linea-suave);
+}
+
+.desacuerdo-titulo {
+  color: var(--texto);
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.desacuerdo-texto {
+  margin-top: 8px;
+  color: var(--cuerpo);
+}
+
+.desacuerdo-texto a {
+  color: var(--texto);
+  text-decoration-color: var(--secundario);
+  text-underline-offset: 3px;
+}
+
+.desacuerdo-opciones {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+@media (min-width: 560px) {
+  .desacuerdo-opciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
 }
 
 .resultado-otro { margin-top: 32px; }

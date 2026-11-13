@@ -16,6 +16,7 @@ Implementado:
 - Seis fuentes externas, una por archivo en `inteligencia/`. Cada una se activa al definir su clave y sin ella se omite. Ver [Fuentes externas](#fuentes-externas).
 - Botón «Avisar a un familiar» en el resultado, desde Ten cuidado (`static/js/resultado.js`). Abre el menú de compartir del celular, o copia el texto donde no existe, con el nivel, el dominio desactivado (`ejemplo[.]com`) y la primera acción. Nunca comparte el enlace.
 - Guía «Ya hice clic, di mis datos o pagué» en `/guia/` (`templates/guia.html`). Pasos numerados para cinco situaciones, qué pruebas guardar y dónde denunciar. No tiene formularios ni pide datos. Enlaza solo a sitios oficiales verificados, con la fecha en un comentario de la plantilla, y no trae teléfonos de entidades porque no se pudieron verificar. El inicio y todo resultado desde Ten cuidado llevan a ella.
+- Reporte de desacuerdo en cada resultado (`curacion/`): «Sí, era estafa» o «No, era legítimo». `ReporteDesacuerdo` guarda el análisis, el tipo, la fecha y el estado pendiente, sin IP, texto libre ni datos de quien lo envía. `/resultado/<uuid>/reporte/` acepta 10 reportes por hora desde un mismo origen y responde 429 al resto. Ningún reporte cambia el veredicto, la reputación ni la caché, y el agradecimiento no promete cambios. Hasta que exista la cola de curación, el admin los muestra solo para leer.
 - `/health/` responde si el proceso está vivo y devuelve el ambiente y el commit desplegado. `/ready/` confirma que la aplicación alcanza la base de datos.
 - `templates/400.html`, `403.html`, `403_csrf.html`, `404.html`, `429.html` y `500.html` son las páginas de error, en español sencillo, con el diseño del sitio y un enlace al inicio. Ninguna muestra trazas, rutas ni el mensaje de la excepción. Las cuatro primeras extienden `error_base.html`; la 500 es independiente porque Django la renderiza sin contexto y la causa del error puede ser la base de datos.
 - `core/entrada.py` es la capa de entrada. `limitar` pone un tope por IP a `/analizar` (30 análisis cada 10 minutos) y responde 429 con `Retry-After` antes de resolver DNS o abrir conexiones. La IP sale de `X-Forwarded-For` según `ENTRADA_PROXIES_CONFIABLES` (2 en producción, 0 en los demás ambientes), se agrupa por /64 en IPv6 y solo se guarda como HMAC con expiración. `consumir_presupuesto_externo` limita las consultas a servicios externos por hora. `LimiteDeTamanoMiddleware` rechaza con 413 las solicitudes de más de 5 MB y con 400 un `Content-Length` inválido, y Django corta con 400 los formularios de más de 128 KB.
@@ -54,10 +55,10 @@ Monolito modular en Django 5.2: una sola aplicación, una sola imagen Docker y s
 | `analisis` | Orquesta cada análisis y contiene los analizadores de URL, imagen y texto | Analizador de enlaces: normalización, heurísticas, redirecciones y edad del dominio |
 | `inteligencia` | Un adaptador por proveedor de Threat Intelligence, con timeout por fuente y circuit breaker | Interfaz común y seis fuentes externas |
 | `motor` | Motor de riesgo, motor de explicación y base de reputación propia | Motor de riesgo y motor de explicación |
-| `catalogo` | Marcas peruanas, dominios oficiales y variantes de suplantación, con versiones | Sin implementar |
-| `curacion` | Cola de reportes, campañas e invalidación de resultados | Sin implementar |
+| `catalogo` | Marcas peruanas, dominios oficiales y variantes de suplantación, con versiones | Marcas y dominios oficiales, con aprobación por TOTP y auditoría |
+| `curacion` | Cola de reportes, campañas e invalidación de resultados | Reporte de desacuerdo |
 
-`catalogo` y `curacion` tienen solo su estructura. Ellas, `inteligencia` y `motor`, que no tienen modelos, no están en `INSTALLED_APPS`.
+`inteligencia` y `motor` no tienen modelos y no están en `INSTALLED_APPS`.
 
 En la nube la aplicación corre en Render, con dos servicios (Dev y Prod) que usan la misma imagen, y PostgreSQL en Neon. El plan gratuito de Render no tiene workers, por eso allí Celery corre en modo eager (`CELERY_EAGER`). En local, `docker-compose.yml` levanta PostgreSQL, Redis, la aplicación y un worker de Celery.
 

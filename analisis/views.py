@@ -23,6 +23,8 @@ from motor.explicacion import (
 from motor.riesgo import Nivel, calcular
 
 ESPERA_SI_OCUPADO_SEGUNDOS = 10
+# Los valores de `curacion.models.ReporteDesacuerdo.Tipo`. Esta app no importa de curacion.
+REPORTES_RECIBIDOS = ("era_estafa", "era_legitimo")
 
 
 @require_POST
@@ -72,11 +74,19 @@ def resultado(request, publico):
         "fecha": analisis.fecha_analisis,
         "hace": hace_cuanto(segundos) if analisis.desde_cache else "",
         "mostrar_guia": veredicto.nivel >= Nivel.TEN_CUIDADO,
+        "publico": analisis.publico,
+        # Tras enviar un reporte, la página agradece en lugar de mostrar otra vez las opciones.
+        "reporte": _reporte_recibido(request),
     }
     respuesta = render(request, "resultado.html", contexto)
     # El resultado lleva el dominio que pegó la persona: ni el navegador ni un proxy lo guardan.
     respuesta["Cache-Control"] = "no-store"
     return respuesta
+
+
+def _reporte_recibido(request) -> str:
+    reporte = request.GET.get("reporte", "")
+    return reporte if reporte in REPORTES_RECIBIDOS else ""
 
 
 def _volver_al_inicio(request, error, texto, estado):

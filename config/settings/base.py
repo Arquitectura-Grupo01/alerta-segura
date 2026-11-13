@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "core",
     "analisis",
     "catalogo.apps.CatalogoConfig",
+    "curacion",
     "django_otp",
     "django_otp.plugins.otp_totp",
 ]

@@ -34,7 +34,7 @@ docker build -t alerta-segura:ci .
 - Todo cambio de comportamiento trae al menos un test nuevo o modificado en `tests/`. pytest solo recolecta esa carpeta.
 - Los tests que usan la base de datos llevan `@pytest.mark.django_db`. Un marcador nuevo se registra en `pyproject.toml`, porque corre con `--strict-markers`.
 - Todo modelo nuevo o modificado incluye su migración en el mismo commit.
-- La primera vez que una app recibe modelos, vistas o tareas, se agrega a `INSTALLED_APPS` en `config/settings/base.py`. Hoy están `core` y `analisis`, y `makemigrations --check` no ve las apps sin registrar.
+- La primera vez que una app recibe modelos, vistas o tareas, se agrega a `INSTALLED_APPS` en `config/settings/base.py`. Hoy están `core`, `analisis`, `catalogo` y `curacion`, y `makemigrations --check` no ve las apps sin registrar.
 - Se cumple la condición «Terminada cuando» de la tarea en `docs/plan.md`. Los controles que el CI todavía no tiene (accesibilidad, datos personales en claro, prompt injection) llegan con su tarea.
 
 ## Apps

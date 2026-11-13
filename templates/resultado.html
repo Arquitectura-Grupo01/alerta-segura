@@ -89,6 +89,24 @@
         </details>
       </div>
     </article>
+    {% comment %}
+    Reporte de desacuerdo (tarea 29). Va al análisis y nunca a la persona, y no cambia este
+    resultado: por eso el agradecimiento no promete cambios.
+    {% endcomment %}
+    <section class="desacuerdo" id="reporte" aria-labelledby="reporte-titulo">
+      {% if reporte %}
+      <h2 class="desacuerdo-titulo" id="reporte-titulo">Gracias por contarnos</h2>
+      <p class="desacuerdo-texto">Una persona del equipo va a revisar este resultado.{% if reporte == "era_estafa" %} Si ya diste tus datos o pagaste, <a href="{% if mostrar_guia %}#ya-hice-clic{% else %}{% url 'guia' %}{% endif %}">sigue estos pasos</a>.{% endif %}</p>
+      {% else %}
+      <h2 class="desacuerdo-titulo" id="reporte-titulo">¿Sabes si era una estafa?</h2>
+      <p class="desacuerdo-texto">Si ya lo confirmaste, cuéntanos. Una persona del equipo revisa cada aviso.</p>
+      <form class="desacuerdo-opciones" method="post" action="{% url 'reportar' publico %}">
+        <button class="boton-reporte" type="submit" name="tipo" value="era_estafa">Sí, era estafa</button>
+        <button class="boton-reporte" type="submit" name="tipo" value="era_legitimo">No, era legítimo</button>
+        {% csrf_token %}
+      </form>
+      {% endif %}
+    </section>
     <p class="resultado-otro">
       <a class="boton-analizar" href="{% url 'inicio' %}">Analizar otro enlace<svg aria-hidden="true" focusable="false" width="18" height="18"><use href="#i-flecha"/></svg></a>
     </p>

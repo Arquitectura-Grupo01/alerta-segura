@@ -4,11 +4,13 @@ from django.urls import path
 
 from analisis import views as analisis
 from core import views
+from curacion import views as curacion
 
 urlpatterns = [
     path("", views.inicio, name="inicio"),
     path("analizar/", analisis.analizar, name="analizar"),
     path("resultado/<uuid:publico>/", analisis.resultado, name="resultado"),
+    path("resultado/<uuid:publico>/reporte/", curacion.reportar, name="reportar"),
     path("guia/", views.guia, name="guia"),
     path("health/", views.health, name="health"),
     path("ready/", views.ready, name="ready"),
