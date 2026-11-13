@@ -16,7 +16,7 @@ from django.utils import timezone
 
 from analisis.destino import seguir_enlace
 from analisis.edad import edad_en_dias, es_web_propia
-from analisis.heuristicas import HEURISTICAS, detectar_senales
+from analisis.heuristicas import HEURISTICAS, detectar_senales, marca_imitada
 from analisis.models import Analisis
 from analisis.normalizacion import EnlaceNormalizado, URLInvalida, normalizar
 from catalogo.models import DominioOficial
@@ -34,7 +34,7 @@ from inteligencia.fuentes import (
     leer_detalles,
     resumir,
 )
-from motor import reputacion
+from motor import modalidades, reputacion
 from motor.cache import descartar_resultado, guardar_resultado
 from motor.explicacion import Recorrido, explicar
 from motor.riesgo import (
@@ -91,11 +91,17 @@ def senales_de(analisis: Analisis) -> Senales:
 def _calcular(enlace: EnlaceNormalizado) -> tuple[Veredicto, dict]:
     destino = seguir_enlace(enlace.url_con_parametros)
     final = _enlace_final(destino.url)
-    oficiales = _dominios_oficiales()
+    marcas = _dominios_oficiales()
+    oficiales = tuple(marcas)
     encontradas = set(detectar_senales(enlace, oficiales))
     if final is not None:
         encontradas.update(detectar_senales(final, oficiales))
     dominio = final.dominio if final is not None else enlace.dominio
+    imitado = marca_imitada(dominio, oficiales) or marca_imitada(enlace.dominio, oficiales)
+    vistas = [enlace] + ([final] if final is not None else [])
+    modalidad = modalidades.detectar(
+        [f"{vista.dominio} {vista.ruta}" for vista in vistas], dominio, oficiales
+    )
     dominio_origen = enlace.dominio if dominio != enlace.dominio else ""
 
     # A las fuentes va la dirección de destino sin parámetros de rastreo.
@@ -160,6 +166,8 @@ def _calcular(enlace: EnlaceNormalizado) -> tuple[Veredicto, dict]:
         "dominio": dominio,
         "dominio_origen": dominio_origen,
         "redirecciones": redirecciones,
+        "marca_suplantada": marcas.get(imitado, ""),
+        "modalidad": modalidad,
         "motivos": list(explicacion.motivos),
         "acciones": list(explicacion.acciones),
         "fecha": fecha.isoformat(),
@@ -167,12 +175,12 @@ def _calcular(enlace: EnlaceNormalizado) -> tuple[Veredicto, dict]:
     return veredicto, datos
 
 
-def _dominios_oficiales() -> tuple[str, ...]:
-    """Dominios aprobados de las marcas activas del catálogo. Vacío si no hay ninguno."""
-    return tuple(
+def _dominios_oficiales() -> dict[str, str]:
+    """Dominios aprobados de las marcas activas del catálogo, con el nombre de su marca."""
+    return dict(
         DominioOficial.objects.filter(
             estado=DominioOficial.Estado.APROBADO, marca__activa=True
-        ).values_list("dominio", flat=True)
+        ).values_list("dominio", "marca__nombre")
     )
 
 
@@ -245,6 +253,9 @@ def _registrar(
         },
         reglas=list(veredicto.reglas),
         fuentes=datos["fuentes"],
+        # Las entradas de la caché anteriores a estos campos no los traen.
+        marca_suplantada=datos.get("marca_suplantada", ""),
+        modalidad=datos.get("modalidad", ""),
         desde_cache=desde_cache,
     )
 

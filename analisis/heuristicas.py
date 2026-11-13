@@ -303,6 +303,19 @@ def detectar_dominio_parecido(dominio: str, dominios_oficiales: Iterable[str]) -
     return []
 
 
+def marca_imitada(dominio: str, dominios_oficiales: Iterable[str]) -> str:
+    """El dominio oficial que imita `dominio`, con las mismas reglas que sus heurísticas.
+
+    Vacío si no imita a ninguno o si es uno oficial.
+    """
+    for oficial in dominios_oficiales:
+        if detectar_dominio_enganoso(dominio, [oficial]) or detectar_dominio_parecido(
+            dominio, [oficial]
+        ):
+            return _limpiar(oficial)
+    return ""
+
+
 def separar_dominio(dominio: str) -> tuple[str, str]:
     """Separa un dominio en su nombre y su sufijo: `interbank.com.pe` da `interbank` y `com.pe`."""
     dominio = _limpiar(dominio)

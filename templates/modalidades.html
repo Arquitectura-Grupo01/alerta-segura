@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block titulo %}Estafas frecuentes en el Perú. Cómo reconocerlas. Alerta Segura{% endblock %}
+{% block descripcion %}Cómo funcionan las estafas más comunes en el Perú, cómo reconocerlas y qué hacer: Yape y Plin, falso asesor del banco, cuenta bloqueada, código de WhatsApp, premios y préstamos.{% endblock %}
+
+{% block modalidades_actual %} aria-current="page"{% endblock %}
+
+{% block contenido %}
+{% comment %}
+   Tarea 33. Los textos están en motor/modalidades.py, donde un test mide su
+   legibilidad. Un resultado enlaza aquí, con el ancla de la modalidad, cuando las
+   palabras de la dirección la sugieren. Esta página no pide ningún dato.
+{% endcomment %}
+<article class="guia">
+  <div class="contenedor">
+    <header class="guia-cabecera">
+      <p class="guia-ruta"><a href="{% url 'inicio' %}">Inicio</a><span aria-hidden="true">/</span>Estafas frecuentes</p>
+      <h1>Estafas frecuentes en el Perú</h1>
+      <p class="guia-intro">Las seis formas de estafa que más circulan. En cada una ves cómo funciona, cómo reconocerla y qué hacer.</p>
+      <p class="guia-aviso"><b>Tu banco, Yape o una entidad del Estado nunca te piden claves ni códigos por mensaje o por teléfono.</b></p>
+    </header>
+
+    <nav class="guia-indice" aria-labelledby="indice-titulo">
+      <h2 class="guia-rotulo" id="indice-titulo">Elige una</h2>
+      <ul>
+        {% for modalidad in modalidades %}<li><a href="#{{ modalidad.clave }}">{{ modalidad.titulo }}</a></li>
+        {% endfor %}
+      </ul>
+    </nav>
+
+    {% for modalidad in modalidades %}
+    <section class="guia-caso" id="{{ modalidad.clave }}" aria-labelledby="t-{{ modalidad.clave }}">
+      <h2 id="t-{{ modalidad.clave }}">{{ modalidad.titulo }}</h2>
+      <h3 class="guia-rotulo">Cómo funciona</h3>
+      <ul class="guia-lista">
+        {% for texto in modalidad.como_funciona %}<li>{{ texto }}</li>
+        {% endfor %}
+      </ul>
+      <h3 class="guia-rotulo">Cómo reconocerla</h3>
+      <ul class="guia-lista">
+        {% for texto in modalidad.como_reconocerla %}<li>{{ texto }}</li>
+        {% endfor %}
+      </ul>
+      <h3 class="guia-rotulo">Qué hacer</h3>
+      <ol class="pasos">
+        {% for texto in modalidad.que_hacer %}<li>{{ texto }}</li>
+        {% endfor %}
+      </ol>
+    </section>
+    {% endfor %}
+
+    <p class="guia-nota guia-pie">¿Ya diste tus datos o pagaste? Sigue la <a href="{% url 'guia' %}">guía de qué hacer ahora</a>. ¿Te llegó un enlace? <a href="{% url 'inicio' %}">Analízalo aquí</a>.</p>
+  </div>
+</article>
+{% endblock %}

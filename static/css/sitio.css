@@ -1762,3 +1762,51 @@ textarea.contacto-campo { resize: vertical; }
 @media (min-width: 560px) {
   .contacto .boton-reporte { justify-self: start; }
 }
+
+/* Resultado: pista de modalidad y canales oficiales de la marca imitada. */
+.resultado-modalidad {
+  margin-top: 18px;
+  color: var(--cuerpo);
+  line-height: 1.5;
+}
+
+.resultado-modalidad a,
+.guia-pie a {
+  color: var(--texto);
+  text-underline-offset: 3px;
+}
+
+.canales-oficiales {
+  margin-top: 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--linea);
+  border-radius: 12px;
+}
+
+.canales-titulo {
+  color: var(--texto);
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+
+.canales-oficiales dl { margin: 8px 0 0; }
+
+.canales-oficiales dl > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 16px;
+  padding: 6px 0;
+}
+
+.canales-oficiales dt { color: var(--secundario); }
+
+.canales-oficiales dd {
+  margin: 0;
+  color: var(--texto);
+  overflow-wrap: anywhere;
+}
+
+.guia-caso .guia-rotulo { margin-top: 22px; }
+
+.guia-pie { margin-top: 56px; max-width: 44rem; }

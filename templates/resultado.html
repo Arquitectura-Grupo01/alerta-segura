@@ -30,6 +30,18 @@
           {% for accion in explicacion.acciones %}<li>{{ accion }}</li>
           {% endfor %}
         </ol>
+        {% if explicacion.marca.canales %}
+        <div class="canales-oficiales">
+          <h3 class="canales-titulo">Canales oficiales de {{ explicacion.marca.nombre }}</h3>
+          <dl>
+            {% for tipo, valor in explicacion.marca.canales %}<div><dt>{{ tipo }}</dt><dd>{{ valor }}</dd></div>
+            {% endfor %}
+          </dl>
+        </div>
+        {% endif %}
+        {% if explicacion.modalidad %}
+        <p class="resultado-modalidad">{{ explicacion.modalidad.1 }} <a href="{% url 'modalidades' %}#{{ explicacion.modalidad.0 }}">Mira cómo funciona</a></p>
+        {% endif %}
         {% if aviso %}
         {# Aparece solo si el navegador puede compartir o copiar: lo decide resultado.js. #}
         <div class="avisar" data-avisar hidden>

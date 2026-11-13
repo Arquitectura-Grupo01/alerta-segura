@@ -12,6 +12,7 @@ urlpatterns = [
     path("resultado/<uuid:publico>/", analisis.resultado, name="resultado"),
     path("resultado/<uuid:publico>/reporte/", curacion.reportar, name="reportar"),
     path("guia/", views.guia, name="guia"),
+    path("estafas-frecuentes/", analisis.modalidades, name="modalidades"),
     path("privacidad/", views.privacidad, name="privacidad"),
     path("terminos/", views.terminos, name="terminos"),
     path("como-verificamos/", views.como_verificamos, name="como_verificamos"),

@@ -16,6 +16,7 @@ from motor.explicacion import (
     DETALLE_SENAL,
     DIRECCION_NORMAL,
     EL_OTRO_NO,
+    ESCRIBE_LA_OFICIAL,
     ESTADO_FUENTE,
     FUENTES_CAIDAS,
     FUENTES_SOSPECHAN,
@@ -34,6 +35,7 @@ from motor.explicacion import (
     NOTA_FUENTES,
     NOTA_REDIRECCIONES,
     PAISES,
+    PISTA_MODALIDAD,
     REPORTA_UNO,
     REPORTAN_VARIOS,
     RESPALDO,
@@ -47,11 +49,14 @@ from motor.explicacion import (
     TIPOS_DE_AMENAZA,
     TITULAR,
     TITULAR_EN_DUDA,
+    TITULAR_IMITA,
     TITULAR_REPORTADA,
+    TITULAR_SEGURO_CON_SENALES,
     TITULAR_SIN_HALLAZGOS,
     TITULAR_WEB_NUEVA,
     UNA_SOLA_SOSPECHA,
     UNO_NO_LA_REPORTA,
+    USA_CANAL_OFICIAL,
     WEB_ANTIGUA,
     WEB_DE_MESES,
     FuenteConsultada,
@@ -83,6 +88,11 @@ def _textos_para_la_persona():
     yield from (titulo for titulo, _ in GRUPOS_DE_FUENTES)
     yield from TITULAR.values()
     yield TITULAR_SIN_HALLAZGOS
+    yield TITULAR_IMITA
+    yield TITULAR_SEGURO_CON_SENALES
+    yield PISTA_MODALIDAD
+    yield USA_CANAL_OFICIAL
+    yield ESCRIBE_LA_OFICIAL
     yield from (
         TITULAR_REPORTADA, TITULAR_EN_DUDA, TITULAR_WEB_NUEVA, MOTORES_SIN_TIPO, LOS_OTROS_NO,
         EL_OTRO_NO,

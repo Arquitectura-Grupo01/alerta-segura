@@ -36,7 +36,7 @@ urlpatterns = [
     # Las páginas que enlaza el pie de base.html.
     *(
         path(f"{nombre}/", lambda request: HttpResponse(""), name=nombre)
-        for nombre in ("privacidad", "terminos", "como_verificamos", "contacto")
+        for nombre in ("privacidad", "terminos", "como_verificamos", "contacto", "modalidades")
     ),
     path("falla/", vista_con_error),
     path("prohibida/", vista_prohibida),
