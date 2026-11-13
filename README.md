@@ -54,11 +54,11 @@ Monolito modular en Django 5.2: una sola aplicación, una sola imagen Docker y s
 | `core` | Capa de entrada (validación, rate limit, CSRF, CSP), caché de resultados, auditoría, salud y validación de destinos de red | `/health/`, `/ready/`, `net.py` y la CSP |
 | `analisis` | Orquesta cada análisis y contiene los analizadores de URL, imagen y texto | Analizador de enlaces: normalización, heurísticas, redirecciones y edad del dominio |
 | `inteligencia` | Un adaptador por proveedor de Threat Intelligence, con timeout por fuente y circuit breaker | Interfaz común y seis fuentes externas |
-| `motor` | Motor de riesgo, motor de explicación y base de reputación propia | Motor de riesgo y motor de explicación |
+| `motor` | Motor de riesgo, motor de explicación y base de reputación propia | Motor de riesgo, motor de explicación y base de reputación propia, con señales propias y sin datos de las fuentes externas |
 | `catalogo` | Marcas peruanas, dominios oficiales y variantes de suplantación, con versiones | Marcas y dominios oficiales, con aprobación por TOTP y auditoría |
 | `curacion` | Cola de reportes, campañas e invalidación de resultados | Reporte de desacuerdo |
 
-`inteligencia` y `motor` no tienen modelos y no están en `INSTALLED_APPS`.
+`inteligencia` no tiene modelos y no está en `INSTALLED_APPS`.
 
 En la nube la aplicación corre en Render, con dos servicios (Dev y Prod) que usan la misma imagen, y PostgreSQL en Neon. El plan gratuito de Render no tiene workers, por eso allí Celery corre en modo eager (`CELERY_EAGER`). En local, `docker-compose.yml` levanta PostgreSQL, Redis, la aplicación y un worker de Celery.
 

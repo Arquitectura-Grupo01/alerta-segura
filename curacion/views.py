@@ -7,6 +7,7 @@ from django.views.decorators.http import require_POST
 from analisis.models import Analisis
 from core.entrada import REPORTES, limitar
 from curacion.models import ReporteDesacuerdo
+from motor import reputacion
 
 
 @require_POST
@@ -23,6 +24,8 @@ def reportar(request, publico):
     except ValueError:
         raise BadRequest("Tipo de reporte desconocido") from None
     reporte = ReporteDesacuerdo.objects.create(analisis=analisis, tipo=tipo)
+    # Solo suma al contador: el motor no lo lee y el veredicto queda igual.
+    reputacion.sumar_reporte(analisis.dominio, reporte.tipo)
     # POST, redirect y GET, como el análisis: al recargar no se envía otro reporte. La
     # dirección sale de `reverse` y el parámetro es uno de los dos tipos del modelo.
     destino = reverse("resultado", args=[analisis.publico])

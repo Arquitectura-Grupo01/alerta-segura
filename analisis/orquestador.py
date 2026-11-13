@@ -34,6 +34,7 @@ from inteligencia.fuentes import (
     leer_detalles,
     resumir,
 )
+from motor import reputacion
 from motor.cache import descartar_resultado, guardar_resultado
 from motor.explicacion import Recorrido, explicar
 from motor.riesgo import (
@@ -102,6 +103,8 @@ def _calcular(enlace: EnlaceNormalizado) -> tuple[Veredicto, dict]:
     web = dominio if es_web_propia(dominio) else ""
     respuestas = consultar_fuentes(activas, (final or enlace).url, web=web)
     edad = edad_en_dias([enlace.dominio, dominio])
+    # Solo la edad del registro público entra a la reputación propia.
+    edad_registro = edad
     if edad is None and web:
         # Sin fecha en el registro público, como en los .pe, vale la que dan las fuentes.
         edad = edad_informada(respuestas)
@@ -130,8 +133,14 @@ def _calcular(enlace: EnlaceNormalizado) -> tuple[Veredicto, dict]:
         fuentes=resumen.valor,
         fuentes_con_deteccion=resumen.confirmaciones,
         fuentes_en_duda=resumen.en_duda,
+        confirmado_por_analista=reputacion.confirmado(
+            (enlace.url, final.url if final else ""), dominio
+        ),
     )
     veredicto = calcular(senales)
+    reputacion.registrar(
+        (final or enlace).url, dominio, heuristicas, senales.marca, edad_registro
+    )
     redirecciones = destino.saltos if final is not None else None
     explicacion = explicar(
         veredicto, dominio, Recorrido(redirecciones, dominio_origen), estados_de(fuentes)

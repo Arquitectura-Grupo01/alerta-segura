@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     "analisis",
     "catalogo.apps.CatalogoConfig",
     "curacion",
+    "motor",
     "django_otp",
     "django_otp.plugins.otp_totp",
 ]
