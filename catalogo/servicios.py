@@ -166,6 +166,11 @@ def solicitar_dominio_oficial(*, marca_id, dominio, fuente_verificacion, usuario
 def aprobar_dominio_oficial(*, dominio_id, usuario, codigo, motivo):
     """Aprueba un dominio mediante un segundo administrador con TOTP."""
 
+    if transaction.get_connection().in_atomic_block:
+        raise RuntimeError(
+            "La aprobación de dominios con TOTP debe ejecutarse fuera de una transacción externa."
+        )
+
     if (
         usuario is None
         or not usuario.is_authenticated

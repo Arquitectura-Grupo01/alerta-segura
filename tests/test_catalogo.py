@@ -1,4 +1,4 @@
-
+﻿
 """Pruebas del catálogo de marcas."""
 from unittest.mock import patch
 
@@ -318,7 +318,7 @@ def test_error_auditoria_revierte_solicitud(marca, administrador):
 
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_segundo_administrador_aprueba_con_totp(marca, administrador):
     from django.contrib.auth import get_user_model
 
@@ -378,7 +378,7 @@ def test_segundo_administrador_aprueba_con_totp(marca, administrador):
     assert aprobado.aprobado_en is not None
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_administrador_no_aprueba_su_solicitud(marca, administrador):
     solicitud = solicitar_dominio_oficial(
         marca_id=marca.pk,
@@ -403,7 +403,7 @@ def test_administrador_no_aprueba_su_solicitud(marca, administrador):
 
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_codigo_totp_utilizado_no_puede_aprobar(marca, administrador):
     from django.contrib.auth import get_user_model
 
@@ -455,7 +455,7 @@ def test_codigo_totp_utilizado_no_puede_aprobar(marca, administrador):
 
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_error_auditoria_revierte_aprobacion(marca, administrador, monkeypatch):
     from django.contrib.auth import get_user_model
 
@@ -600,7 +600,7 @@ def test_codigo_incorrecto_conserva_intento_fallido():
 
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_aprobacion_guarda_historial(marca, administrador):
     from django.contrib.auth import get_user_model
 
@@ -742,7 +742,7 @@ def test_no_permite_dos_reemplazos_pendientes(marca, administrador):
 
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_aprobar_reemplazo_retira_dominio_anterior(
     marca, administrador
 ):
@@ -814,7 +814,7 @@ def test_aprobar_reemplazo_retira_dominio_anterior(
 
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_error_auditoria_revierte_reemplazo(
     marca, administrador, monkeypatch
 ):
@@ -884,3 +884,53 @@ def test_error_auditoria_revierte_reemplazo(
     assert not HistorialDominio.objects.filter(
         dominio_oficial__in=[anterior, solicitud]
     ).exists()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_aprobacion_dominio_rechaza_transaccion_externa(marca, administrador):
+    from django.contrib.auth import get_user_model
+    from django.db import transaction
+    from django_otp.plugins.otp_totp.models import TOTPDevice
+
+    segundo_admin = get_user_model().objects.create_user(
+        username="admin_transaccion_externa",
+        password="ClaveDePrueba123!",
+        is_staff=True,
+    )
+
+    solicitud = solicitar_dominio_oficial(
+        marca_id=marca.pk,
+        dominio="transaccion-ejemplo.com.pe",
+        fuente_verificacion="https://transaccion-ejemplo.com.pe",
+        usuario=administrador,
+        motivo="Solicitud para prueba de seguridad",
+    )
+
+    dispositivo = TOTPDevice.objects.create(
+        user=segundo_admin,
+        name="Autenticador de prueba",
+        confirmed=True,
+    )
+
+    codigo = str(
+        totp(
+            dispositivo.bin_key,
+            step=dispositivo.step,
+            digits=dispositivo.digits,
+        )
+    ).zfill(6)
+
+    with transaction.atomic():
+        with pytest.raises(RuntimeError, match="fuera de una transacci"):
+            aprobar_dominio_oficial(
+                dominio_id=solicitud.pk,
+                usuario=segundo_admin,
+                codigo=codigo,
+                motivo="Intento dentro de transaccion externa",
+            )
+
+    solicitud.refresh_from_db()
+    dispositivo.refresh_from_db()
+
+    assert solicitud.estado == DominioOficial.Estado.PENDIENTE
+    assert dispositivo.last_t == -1
