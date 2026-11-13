@@ -76,6 +76,7 @@ Django no impone la separación entre apps, así que la sostienen estos imports 
 - Una respuesta de error nunca incluye el detalle de la excepción. Sigue el patrón de `/ready/`.
 - Ningún secreto, token ni credencial en código, tests o fixtures. gitleaks revisa todo el historial.
 - Todo endpoint que reciba datos del usuario o salga a internet por él lleva `@limitar(<política>)` de `core.entrada`, con las políticas definidas ahí (`ANALISIS`, `REPORTES`). Para la IP usa `core.entrada.ip_del_cliente`; nunca leas `X-Forwarded-For` por tu cuenta ni guardes la IP en claro.
+- Todo color nuevo de `static/css/sitio.css` se mide antes de usarlo: el texto necesita 4,5:1 o más en el modo normal y 7:1 o más en el de alto contraste (`tests/test_accesibilidad.py` lo comprueba para las variables de `:root` y de `html[data-contraste="alto"]`). Todo control que se pueda pulsar mide 48 px de alto como mínimo y se agrega a la lista `CONTROLES` de ese archivo. Los tamaños de texto van en `rem`, para que escalen con la preferencia del ciudadano, y las preferencias de lectura se guardan en `localStorage`, nunca en una cookie.
 - Las páginas de error (`templates/400.html`, `403.html`, `404.html`, `429.html`, `500.html`) tienen texto fijo: no imprimas en ellas `request_path`, `exception` ni otra variable del contexto. `500.html` no extiende `base.html` ni usa `{% url %}` a propósito (Django la renderiza sin contexto); mantenla así.
 
 Conexiones salientes:

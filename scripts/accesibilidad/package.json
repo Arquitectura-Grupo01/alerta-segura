@@ -1,0 +1,11 @@
+{
+  "name": "alerta-segura-accesibilidad",
+  "private": true,
+  "description": "Revisión automática WCAG 2.1 AA (axe-core sobre jsdom) de las páginas renderizadas por Django.",
+  "type": "module",
+  "scripts": { "revisar": "node revisar.mjs" },
+  "dependencies": {
+    "axe-core": "4.10.2",
+    "jsdom": "26.0.0"
+  }
+}

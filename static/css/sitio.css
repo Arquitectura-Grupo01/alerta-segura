@@ -1810,3 +1810,185 @@ textarea.contacto-campo { resize: vertical; }
 .guia-caso .guia-rotulo { margin-top: 22px; }
 
 .guia-pie { margin-top: 56px; max-width: 44rem; }
+
+/* Accesibilidad (tarea 30).
+   Las preferencias de lectura son atributos de <html> que pone static/js/accesibilidad.js:
+   data-texto="grande" | "muy-grande" y data-contraste="alto". Todos los tamaños del sitio
+   salen de rem, así que cambiar el font-size de <html> escala el texto completo.
+   Cada color nuevo se mide antes de usarlo: tests/test_accesibilidad.py exige 4,5:1 como
+   mínimo en el modo normal y 7:1 en el de alto contraste. */
+
+html[data-texto="grande"] { font-size: 112.5%; }
+html[data-texto="muy-grande"] { font-size: 125%; }
+
+/* Enlace para saltar al contenido: invisible hasta que recibe el foco con el teclado. */
+.saltar {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  padding-inline: 20px;
+  border-radius: 999px;
+  background: var(--texto);
+  color: var(--noche);
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(-200%);
+}
+
+.saltar:focus { transform: none; }
+
+/* El contenedor principal recibe el foco al saltar, pero no es un control: sin anillo. */
+#contenido:focus { outline: none; }
+
+/* Panel de ajustes de lectura. */
+.ajustes { position: relative; }
+
+.ajustes-abrir {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 48px;
+  min-height: 48px;
+  padding-inline: 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cuerpo);
+  font: inherit;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.ajustes-abrir:hover { color: var(--texto); }
+
+/* En pantallas angostas queda solo el ícono; el texto sigue disponible para lectores de pantalla. */
+.ajustes-abrir span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (min-width: 768px) {
+  .ajustes-abrir span {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+  }
+}
+
+.ajustes-panel {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 5;
+  width: min(20rem, calc(100vw - 2 * var(--gutter)));
+  padding: 16px;
+  border: 1px solid var(--linea);
+  border-radius: 16px;
+  background: var(--superficie);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+}
+
+.ajustes-titulo {
+  margin-bottom: 12px;
+  color: var(--texto);
+  font-weight: 600;
+}
+
+.ajustes-rotulo {
+  margin-top: 12px;
+  margin-bottom: 8px;
+  color: var(--secundario);
+  font-size: 1rem;
+}
+
+.ajustes-fila {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.ajustes-opcion {
+  min-width: 48px;
+  min-height: 48px;
+  padding-inline: 10px;
+  border: 1px solid var(--linea);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--cuerpo);
+  font: inherit;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.ajustes-opcion:hover { border-color: var(--secundario); color: var(--texto); }
+
+/* Lo activo se distingue por relleno y por la marca ✓, no solo por el color. */
+.ajustes-opcion[aria-pressed="true"] {
+  border-color: var(--texto);
+  background: var(--texto);
+  color: var(--noche);
+  font-weight: 600;
+}
+
+.ajustes-opcion[aria-pressed="true"]::before { content: "\2713\00a0"; }
+
+.ajustes-ancho { width: 100%; }
+
+.ajustes-estado {
+  min-height: 1.5em;
+  margin-top: 8px;
+  color: var(--secundario);
+  font-size: 1rem;
+}
+
+/* Migas de pan de la guía: el enlace al inicio también debe medir 48 px de alto. */
+.guia-ruta { align-items: center; }
+
+.guia-ruta a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+}
+
+/* Alto contraste: fondo negro, texto blanco y bordes marcados. Mismos nombres de variable
+   que :root, así que todo el sitio lo toma sin reglas por componente. */
+html[data-contraste="alto"] {
+  --noche: #000000;
+  --banda: transparent;
+  --superficie: #000000;
+  --texto: #ffffff;
+  --cuerpo: #ffffff;
+  --secundario: #f0f0f0;
+  --titulo-tenue: #e6e6e6;
+  --placeholder: #d6d6d6;
+  --linea: rgba(255, 255, 255, 0.7);
+  --linea-suave: rgba(255, 255, 255, 0.45);
+  --error: #ffc9bd;
+  --esqueleto: #3a3a3a;
+
+  --seguro: #7ff0b0;
+  --cuidado: #ffd24d;
+  --peligroso: #ffa38a;
+  --alto: #ff8f8a;
+}
+
+html[data-contraste="alto"] body { background-image: none; }
+
+html[data-contraste="alto"] a { text-decoration: underline; text-underline-offset: 3px; }
+
+html[data-contraste="alto"] .marca,
+html[data-contraste="alto"] .boton-analizar,
+html[data-contraste="alto"] .boton-inicio,
+html[data-contraste="alto"] .saltar { text-decoration: none; }
+
+html[data-contraste="alto"] :focus-visible { outline-width: 4px; }
