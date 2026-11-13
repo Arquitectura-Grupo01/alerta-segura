@@ -10,24 +10,47 @@ Los tiempos están acotados por cada paso: 10 s el enlace, 5 s la edad y 6 s las
 
 import threading
 from dataclasses import asdict
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from django.utils import timezone
 
 from analisis.destino import seguir_enlace
-from analisis.edad import edad_en_dias
+from analisis.edad import edad_en_dias, es_web_propia
 from analisis.heuristicas import HEURISTICAS, detectar_senales
 from analisis.models import Analisis
 from analisis.normalizacion import EnlaceNormalizado, URLInvalida, normalizar
+from catalogo.models import DominioOficial
 from core.resultados import leer_resultado
-from inteligencia.fuentes import consultar_fuentes, fuentes_activas, resumir
+from inteligencia.fuentes import (
+    MOTIVO_CUOTA,
+    MOTIVO_PRESUPUESTO,
+    MOTIVO_SIN_CATEGORIA,
+    VALOR_CONFIRMA,
+    aplicar_vigencia,
+    consultar_fuentes,
+    edad_informada,
+    fuentes_activas,
+    guardar_detalles,
+    leer_detalles,
+    resumir,
+)
 from motor.cache import descartar_resultado, guardar_resultado
 from motor.explicacion import Recorrido, explicar
-from motor.riesgo import VERSION_INICIAL, Nivel, Senales, Veredicto, calcular
+from motor.riesgo import (
+    VERSION_INICIAL,
+    Nivel,
+    Senales,
+    Veredicto,
+    calcular,
+    horas_de_vigencia,
+    puntaje_marca,
+)
 
 # Análisis a la vez en un proceso. Cada uno abre conexiones y lee páginas de hasta 2 MB,
 # y Render da 512 MB.
 MAX_SIMULTANEOS = 2
+# El servicio no falló: se acabaron las consultas que permite, las suyas o las nuestras.
+MOTIVOS_DE_CUPO = frozenset({MOTIVO_CUOTA, MOTIVO_PRESUPUESTO})
 ESPERA_DE_TURNO_SEGUNDOS = 3
 
 _turnos = threading.BoundedSemaphore(MAX_SIMULTANEOS)
@@ -54,7 +77,8 @@ def analizar_enlace(enlace: EnlaceNormalizado) -> Analisis:
         veredicto, datos = _calcular(enlace)
     finally:
         _turnos.release()
-    guardar_resultado(enlace.url, veredicto, datos)
+    sin_cupo = any(_estado_visible(fuente) == "sin_cupo" for fuente in datos["fuentes"])
+    guardar_resultado(enlace.url, veredicto, datos, incompleto=sin_cupo)
     return _registrar(enlace, datos, veredicto, desde_cache=False)
 
 
@@ -66,38 +90,56 @@ def senales_de(analisis: Analisis) -> Senales:
 def _calcular(enlace: EnlaceNormalizado) -> tuple[Veredicto, dict]:
     destino = seguir_enlace(enlace.url_con_parametros)
     final = _enlace_final(destino.url)
-    encontradas = set(detectar_senales(enlace))
+    oficiales = _dominios_oficiales()
+    encontradas = set(detectar_senales(enlace, oficiales))
     if final is not None:
-        encontradas.update(detectar_senales(final))
+        encontradas.update(detectar_senales(final, oficiales))
     dominio = final.dominio if final is not None else enlace.dominio
     dominio_origen = enlace.dominio if dominio != enlace.dominio else ""
 
     # A las fuentes va la dirección de destino sin parámetros de rastreo.
     activas = fuentes_activas()
-    respuestas = consultar_fuentes(activas, (final or enlace).url)
+    web = dominio if es_web_propia(dominio) else ""
+    respuestas = consultar_fuentes(activas, (final or enlace).url, web=web)
+    edad = edad_en_dias([enlace.dominio, dominio])
+    if edad is None and web:
+        # Sin fecha en el registro público, como en los .pe, vale la que dan las fuentes.
+        edad = edad_informada(respuestas)
+    # Un análisis externo sin hallazgos vale más tiempo en una web antigua.
+    respuestas = aplicar_vigencia(respuestas, timedelta(hours=horas_de_vigencia(edad)))
     resumen = resumir(respuestas)
     fuentes = [
         {
             "fuente": fuente.nombre,
             "titulo": fuente.titulo or fuente.nombre,
             "estado": respuesta.estado.value,
+            "valor": respuesta.valor,
+            # Por qué falló, con los códigos de `inteligencia`. No es dato del proveedor.
+            **({"motivo": respuesta.motivo} if respuesta.motivo else {}),
         }
         for fuente, respuesta in zip(activas, respuestas, strict=True)
     ]
 
+    # En el orden del registro, para que los motivos salgan siempre en el mismo orden.
+    heuristicas = tuple(codigo for codigo in HEURISTICAS if codigo in encontradas)
     senales = Senales(
         tipo_entrada="enlace",
-        # En el orden del registro, para que los motivos salgan siempre en el mismo orden.
-        heuristicas=tuple(codigo for codigo in HEURISTICAS if codigo in encontradas),
-        edad_dias=edad_en_dias([enlace.dominio, dominio]),
+        heuristicas=heuristicas,
+        marca=puntaje_marca(heuristicas, catalogo_disponible=bool(oficiales)),
+        edad_dias=edad,
         fuentes=resumen.valor,
         fuentes_con_deteccion=resumen.confirmaciones,
+        fuentes_en_duda=resumen.en_duda,
     )
     veredicto = calcular(senales)
     redirecciones = destino.saltos if final is not None else None
     explicacion = explicar(
         veredicto, dominio, Recorrido(redirecciones, dominio_origen), estados_de(fuentes)
     )
+    fecha = timezone.now()
+    # Lo que contó cada fuente va aparte, a la caché técnica: dura un día y nunca llega
+    # a `Analisis` ni a la caché de resultados.
+    guardar_detalles(_consulta_de_detalles(fecha, dominio), activas, respuestas)
     datos = {
         "nivel": int(veredicto.nivel),
         "puntaje": veredicto.puntaje,
@@ -111,14 +153,48 @@ def _calcular(enlace: EnlaceNormalizado) -> tuple[Veredicto, dict]:
         "redirecciones": redirecciones,
         "motivos": list(explicacion.motivos),
         "acciones": list(explicacion.acciones),
-        "fecha": timezone.now().isoformat(),
+        "fecha": fecha.isoformat(),
     }
     return veredicto, datos
 
 
+def _dominios_oficiales() -> tuple[str, ...]:
+    """Dominios aprobados de las marcas activas del catálogo. Vacío si no hay ninguno."""
+    return tuple(
+        DominioOficial.objects.filter(
+            estado=DominioOficial.Estado.APROBADO, marca__activa=True
+        ).values_list("dominio", flat=True)
+    )
+
+
+def detalles_de(analisis: Analisis) -> dict[str, dict]:
+    """Lo que contó cada fuente en este análisis, por título. Vacío pasado un día."""
+    return leer_detalles(_consulta_de_detalles(analisis.fecha_analisis, analisis.dominio))
+
+
+def _consulta_de_detalles(fecha: datetime, dominio: str) -> str:
+    # La fecha y el dominio son los mismos en el análisis y en sus copias de la caché.
+    return f"{int(fecha.timestamp() * 1_000_000)}:{dominio}"
+
+
 def estados_de(fuentes: list[dict]) -> tuple[tuple[str, str], ...]:
-    """Título y estado de cada fuente, como los pide el motor de explicación."""
-    return tuple((fuente["titulo"], fuente["estado"]) for fuente in fuentes)
+    """Título y estado de cada fuente, como los pide el motor de explicación.
+
+    Una detección de menos de VALOR_CONFIRMA, como 1 o 2 motores de VirusTotal o una IP
+    reportada, se muestra como sospecha.
+    """
+    return tuple((fuente["titulo"], _estado_visible(fuente)) for fuente in fuentes)
+
+
+def _estado_visible(fuente: dict) -> str:
+    valor = fuente.get("valor")
+    if fuente["estado"] == "deteccion" and fuente.get("motivo") == MOTIVO_SIN_CATEGORIA:
+        return "no_concluyente"
+    if fuente["estado"] == "deteccion" and valor is not None and valor < VALOR_CONFIRMA:
+        return "sospecha"
+    if fuente["estado"] == "fallo" and fuente.get("motivo") in MOTIVOS_DE_CUPO:
+        return "sin_cupo"
+    return fuente["estado"]
 
 
 def _senales(guardadas: dict) -> Senales:

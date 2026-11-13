@@ -155,6 +155,11 @@ CELERY_TASK_TIME_LIMIT = 30
 
 # Claves de las fuentes externas. Una fuente sin clave se omite.
 SAFE_BROWSING_API_KEY = env("SAFE_BROWSING_API_KEY", default="")
+ABUSE_CH_AUTH_KEY = env("ABUSE_CH_AUTH_KEY", default="")
+PHISHTANK_APP_KEY = env("PHISHTANK_APP_KEY", default="")
+VIRUSTOTAL_API_KEY = env("VIRUSTOTAL_API_KEY", default="")
+URLSCAN_API_KEY = env("URLSCAN_API_KEY", default="")
+ABUSEIPDB_API_KEY = env("ABUSEIPDB_API_KEY", default="")
 
 LOGGING = {
     "version": 1,

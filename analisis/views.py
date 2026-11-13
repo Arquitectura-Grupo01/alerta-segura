@@ -4,9 +4,16 @@ from django.views.decorators.http import require_GET, require_POST
 
 from analisis.models import Analisis
 from analisis.normalizacion import LARGO_MAXIMO, URLInvalida, normalizar
-from analisis.orquestador import Ocupado, analizar_enlace, estados_de, senales_de
+from analisis.orquestador import (
+    Ocupado,
+    analizar_enlace,
+    detalles_de,
+    estados_de,
+    senales_de,
+)
 from core.entrada import ANALISIS, limitar
 from motor.explicacion import (
+    NOTA_FUENTES,
     OCUPADO,
     Recorrido,
     aviso_para_compartir,
@@ -47,12 +54,19 @@ def resultado(request, publico):
     # Con las mismas señales y la misma versión de reglas, el motor da el mismo veredicto.
     veredicto = calcular(senales_de(analisis))
     recorrido = Recorrido(analisis.redirecciones, analisis.dominio_origen)
-    explicacion = explicar(veredicto, analisis.dominio, recorrido, estados_de(analisis.fuentes))
+    explicacion = explicar(
+        veredicto,
+        analisis.dominio,
+        recorrido,
+        estados_de(analisis.fuentes),
+        detalles_de(analisis),
+    )
     segundos = (timezone.now() - analisis.fecha_analisis).total_seconds()
     contexto = {
         "veredicto": veredicto,
         "nivel": veredicto.nivel,
         "explicacion": explicacion,
+        "nota_fuentes": NOTA_FUENTES,
         "dominio": analisis.dominio,
         "aviso": aviso_para_compartir(veredicto, analisis.dominio),
         "fecha": analisis.fecha_analisis,

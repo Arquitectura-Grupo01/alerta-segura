@@ -20,6 +20,8 @@ VIGENCIA_SEGUNDOS = {
 }
 # Sin información, o Ten cuidado solo por ser una web nueva: se revisa pronto otra vez.
 VIGENCIA_SIN_INFORMACION = 6 * HORA
+# El cupo por minuto de un servicio se repone enseguida.
+VIGENCIA_INCOMPLETO = 2 * 60
 
 
 def vigencia_segundos(veredicto: Veredicto) -> int:
@@ -32,13 +34,20 @@ def vigencia_segundos(veredicto: Veredicto) -> int:
     return VIGENCIA_SIN_INFORMACION if solo_por_piso else VIGENCIA_SEGUNDOS[veredicto.nivel]
 
 
-def guardar_resultado(url: str, veredicto: Veredicto, datos: dict) -> None:
-    """Guarda `datos` con la vigencia del nivel y los contadores vigentes de sus dominios."""
+def guardar_resultado(
+    url: str, veredicto: Veredicto, datos: dict, incompleto: bool = False
+) -> None:
+    """Guarda `datos` con la vigencia del nivel y los contadores vigentes de sus dominios.
+
+    `incompleto` es un resultado al que le faltó un servicio que se quedó sin cupo. Si no
+    es peligroso, se guarda solo unos minutos: al reintentar se analiza de nuevo.
+    """
     dominios = (datos["dominio"], datos["dominio_origen"])
     entrada = {**datos, "contadores": contadores_de(dominios)}
-    caches[CACHE].set(
-        clave_de_resultado(url, veredicto.version), entrada, timeout=vigencia_segundos(veredicto)
-    )
+    segundos = vigencia_segundos(veredicto)
+    if incompleto and veredicto.nivel < Nivel.PELIGROSO:
+        segundos = min(segundos, VIGENCIA_INCOMPLETO)
+    caches[CACHE].set(clave_de_resultado(url, veredicto.version), entrada, timeout=segundos)
 
 
 def descartar_resultado(url: str, version: str) -> None:

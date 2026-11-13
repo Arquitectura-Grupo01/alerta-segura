@@ -99,5 +99,7 @@ def test_politica_de_salida_no_cambia_sin_revision():
     assert net.MAX_REDIRECCIONES == 3
     assert net.TIMEOUT_CONEXION_SEGUNDOS == 2
     assert net.PLAZO_TOTAL_SEGUNDOS == 10
-    assert net.METODOS_PERMITIDOS == {"GET", "HEAD"}
+    # POST, solo para las APIs de las fuentes externas (decisión del 2026-11-13).
+    assert net.METODOS_PERMITIDOS == {"GET", "HEAD", "POST"}
+    assert {"host", "cookie", "user-agent", "accept-encoding"} <= net.ENCABEZADOS_PROHIBIDOS
     assert net.MAX_BYTES_RESPUESTA == 2 * 1024 * 1024

@@ -72,7 +72,7 @@ def test_resultado_trae_de_3_a_5_motivos_y_acciones(client):
 def test_sin_fuentes_externas_nunca_da_seguro(client):
     html = _analizar(client, ENLACE_TEN_CUIDADO).content.decode()
     assert ">Seguro</h1>" not in html
-    assert "Todavía no tenemos datos suficientes para decir que es segura." in html
+    assert "No encontramos nada malo, pero nos falta información para decir que es segura." in html
 
 
 def test_el_destino_nunca_es_un_enlace(client):
@@ -222,7 +222,7 @@ def test_un_acortador_que_lleva_a_una_web_de_3_dias(client, monkeypatch):
 
     # El destino final es el que se muestra, y la edad es la suya.
     assert '<span class="oculto">Web que abre el enlace: </span>web-nueva.example</p>' in html
-    assert "<li>La web se creó hace 3 días.</li>" in html
+    assert "<li>La web se creó hace 3 días. Muchas estafas usan webs recién creadas.</li>" in html
     assert "<dt>Redirecciones" in html
     assert "<dd>2, desde bit.ly</dd>" in html
     # «verifica» está en la ruta del destino, no en el enlace que pegaron.
@@ -237,7 +237,9 @@ def test_si_no_se_puede_seguir_el_enlace_el_detalle_lo_dice(client):
     html = _analizar(client, ENLACE_TEN_CUIDADO).content.decode()
     assert f"<dd>{SIN_DESTINO}</dd>" in html
     assert '<span class="oculto">Web que abre el enlace: </span>ejemplo.com</p>' in html
-    assert "No sabemos cuándo se creó la web." in html
+    # Lo que no se pudo saber va en el detalle, no entre los motivos.
+    assert "No sabemos cuándo se creó la web." not in html
+    assert "<dd>No se pudo saber</dd>" in html
 
 
 def test_si_la_direccion_de_destino_no_se_puede_leer_se_analiza_el_enlace_pegado(

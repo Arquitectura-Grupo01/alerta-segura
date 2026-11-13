@@ -4,7 +4,7 @@ Reglas para cualquier agente que programe en este repo. Si una regla choca con l
 
 **El repo es público.** No escribas en él datos personales reales, valores de variables de entorno, URLs de los ambientes desplegados ni la ruta real del admin. En tests y ejemplos usa datos ficticios.
 
-Alerta Segura analiza enlaces, capturas, códigos QR y textos que recibió un ciudadano, y devuelve un nivel de riesgo, los motivos en lenguaje cotidiano y una acción. Es un monolito modular en Django 5.2 con PostgreSQL, Celery y Redis. Hoy tienen código `core`, `analisis` y `motor`; `inteligencia`, `catalogo` y `curacion` son estructura vacía.
+Alerta Segura analiza enlaces, capturas, códigos QR y textos que recibió un ciudadano, y devuelve un nivel de riesgo, los motivos en lenguaje cotidiano y una acción. Es un monolito modular en Django 5.2 con PostgreSQL, Celery y Redis. Hoy tienen código `core`, `analisis`, `motor` e `inteligencia`; `catalogo` y `curacion` son estructura vacía.
 
 `docs/requisitos.md` dice qué hace la plataforma, con todos sus valores; `docs/seguridad.md`, sus riesgos y pruebas obligatorias; `docs/plan.md`, las tareas numeradas; y `docs/decisiones.md`, lo que decidió el equipo, que manda sobre lo demás. Cuando te pidan una tarea por su número, léela completa en el plan junto con las secciones de requisitos y seguridad que toca. Si es una propuesta nueva o algo que requiere acuerdo del equipo y no figura en `docs/decisiones.md`, pregunta antes de programarlo.
 
@@ -96,7 +96,9 @@ Motor, caché y fuentes externas. Cada regla de esta lista tiene su propio test:
 - La clave de caché es el SHA-256 de la URL normalizada más la versión de reglas. Vigencia: 72 h para Peligroso y Peligro alto, 24 h para Ten cuidado, 6 h para Seguro y sin información.
 - Las respuestas crudas de terceros solo viven en la caché técnica, 24 h como máximo, y nunca pasan a la reputación ni a estadísticas. Sus términos de uso lo prohíben.
 - Un reporte ciudadano entra como pendiente y nunca cambia un veredicto ni la caché. Máximo 10 reportes por hora por origen.
-- Una fuente caída, que responde "desconocido" o con un análisis de más de 24 h, no prueba que el contenido esté limpio.
+- Una fuente caída, que responde "desconocido" o con un análisis vencido, no prueba que el contenido esté limpio. Un análisis sin hallazgos vale 24 h si la web tiene menos de 30 días o no se conoce su edad, 7 días si tiene menos de un año y 30 días si tiene más.
+- Una sospecha de las fuentes externas cuenta desde dos fuentes. Una confirmación cuenta sola. Que una fuente marque una web no la confirma: VirusTotal confirma solo si 3 motores coinciden en el tipo de amenaza.
+- Una explicación solo afirma el tipo de amenaza que una fuente informó. Sin tipo, no se dice qué hace la web.
 - Nunca se emite Seguro con cobertura menor al 70 % ni para un dominio de menos de 30 días. En esos casos el mínimo es Ten cuidado.
 - El modelo de lenguaje está desactivado por defecto. Si se habilita, su salida se valida contra un esquema JSON, suma 10 puntos como máximo, nunca resta, no cuenta para la cobertura y el puntaje final no pasa de 100.
 - Cada veredicto guarda la versión de reglas, las señales, los pesos y el puntaje. Con las mismas señales y la misma versión, el puntaje es idéntico.

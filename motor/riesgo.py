@@ -80,6 +80,7 @@ NIVEL_DE_REGLA = MappingProxyType({
     "una_fuente_confirma": Nivel.PELIGROSO,
     "suplantacion_en_web_nueva": Nivel.PELIGROSO,
     "credenciales_con_urgencia": Nivel.PELIGROSO,
+    "fuente_no_concluyente": Nivel.TEN_CUIDADO,
     "web_nueva": Nivel.TEN_CUIDADO,
     "cobertura_baja": Nivel.TEN_CUIDADO,
 })
@@ -102,10 +103,15 @@ class VersionReglas:
     aporte_maximo_modelo: int = 10
     suplantacion_minima: int = 60
     dias_web_nueva: int = 30
+    # Cuánto vale un análisis externo sin hallazgos según la edad de la web:
+    # (edad menor que estos días, horas de vigencia). El último tramo no tiene tope.
+    vigencia_analisis: tuple[tuple[int | None, int], ...] = ((None, 24),)
 
 
 VERSION_INICIAL = VersionReglas(
-    numero="1",
+    # La 2 cambia la vigencia de los análisis externos, que era de 24 h para toda web.
+    numero="2",
+    vigencia_analisis=((30, 24), (365, 7 * 24), (None, 30 * 24)),
     pesos=MappingProxyType({
         FUENTES: 40,
         EDAD: 25,
@@ -146,6 +152,8 @@ class Senales:
     # De 0 a 100. `None` si ninguna fuente tiene un análisis vigente.
     fuentes: int | None = None
     fuentes_con_deteccion: int = 0
+    # Una fuente la marca como peligrosa sin decir de qué tipo y ninguna lo confirma.
+    fuentes_en_duda: bool = False
     ingenieria_social: int | None = None
     credenciales_con_urgencia: bool = False
     confirmado_por_analista: bool = False
@@ -232,6 +240,20 @@ def puntaje_marca(codigos: tuple[str, ...], catalogo_disponible: bool) -> int | 
     return 100 if SENALES_DE_MARCA & set(codigos) else 0
 
 
+def horas_de_vigencia(edad_dias: int | None, version: VersionReglas = VERSION_INICIAL) -> int:
+    """Horas que vale un análisis externo sin hallazgos para una web de esa edad.
+
+    Una página falsa vive horas o días, así que en una web nueva solo sirve un análisis
+    de hoy. Sin edad conocida se usa el plazo más corto.
+    """
+    if edad_dias is None:
+        return version.vigencia_analisis[0][1]
+    for tope, horas in version.vigencia_analisis:
+        if tope is None or edad_dias < tope:
+            return horas
+    return version.vigencia_analisis[-1][1]
+
+
 def puntaje_edad(edad_dias: int | None) -> int | None:
     if edad_dias is None:
         return None
@@ -271,6 +293,8 @@ def _pisos(senales: Senales, version: VersionReglas, cobertura_baja: bool) -> di
         "una_fuente_confirma": senales.fuentes_con_deteccion == 1,
         "suplantacion_en_web_nueva": suplantacion and web_nueva,
         "credenciales_con_urgencia": senales.credenciales_con_urgencia,
+        # Evidencia contradictoria: ni Seguro ni Peligroso, hasta que algo lo aclare.
+        "fuente_no_concluyente": senales.fuentes_en_duda and not senales.fuentes_con_deteccion,
         "web_nueva": web_nueva,
         "cobertura_baja": cobertura_baja,
     }

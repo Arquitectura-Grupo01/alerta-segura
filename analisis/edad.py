@@ -90,6 +90,17 @@ def edad_en_dias(dominios: Iterable[str]) -> int | None:
     return dias
 
 
+def es_web_propia(dominio: str) -> bool:
+    """True si la reputación y la edad de la web dicen algo de sus páginas.
+
+    No es así en un acortador ni en un alojamiento compartido, donde cualquiera publica
+    bajo el mismo nombre, ni cuando la dirección es solo un número.
+    """
+    if _pertenece(dominio, ACORTADORES) or _pertenece(dominio, ALOJAMIENTOS_COMPARTIDOS):
+        return False
+    return bool(_candidatos(dominio))
+
+
 def _pertenece(dominio: str, bases: Iterable[str]) -> bool:
     return any(dominio == base or dominio.endswith("." + base) for base in bases)
 

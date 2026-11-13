@@ -2,7 +2,6 @@
 
 import base64
 import hashlib
-import json
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
@@ -29,16 +28,35 @@ def sha(expresion):
     return hashlib.sha256(expresion.encode()).digest()
 
 
+TIPOS = {
+    "MALWARE": 1,
+    "SOCIAL_ENGINEERING": 2,
+    "UNWANTED_SOFTWARE": 3,
+    "POTENTIALLY_HARMFUL_APPLICATION": 4,
+    "TIPO_NUEVO": 99,
+}
+# Lo que Google respondió el 2026-11-13 por su página de prueba de página falsa.
+EXPRESION_REAL = "testsafebrowsing.appspot.com/s/phishing.html"
+RESPUESTA_REAL = bytes.fromhex(
+    "0a260a20efbd4c3ab44f327eb13ca942ad7c7f0ab47ec260a4d0b8051684a01b2ef35220"
+    "12020802120308ac02"
+)
+
+
+def campo(numero, contenido):
+    """Un campo de protobuf con contenido de menos de 128 bytes."""
+    return bytes([numero << 3 | 2, len(contenido)]) + contenido
+
+
 def google(hashes, codigo=200):
-    """Respuesta de hashes:search con los hashes completos y sus tipos de amenaza."""
-    cuerpo = {
-        "fullHashes": [
-            {"fullHash": b64(completo), "fullHashDetails": [{"threatType": t} for t in tipos]}
-            for completo, tipos in hashes
-        ],
-        "cacheDuration": "300s",
-    }
-    return RespuestaSegura(RESULTADO_OK, codigo_http=codigo, cuerpo=json.dumps(cuerpo).encode())
+    """Respuesta de hashes:search, en protobuf, con los hashes completos y sus tipos."""
+    cuerpo = b"".join(
+        campo(1, campo(1, completo) + b"".join(campo(2, bytes([8, TIPOS[t]])) for t in tipos))
+        for completo, tipos in hashes
+    )
+    # cache_duration de 300 s, como en la respuesta real.
+    cuerpo += campo(2, bytes.fromhex("08ac02"))
+    return RespuestaSegura(RESULTADO_OK, codigo_http=codigo, cuerpo=cuerpo)
 
 
 @pytest.fixture
@@ -136,12 +154,28 @@ def test_un_tipo_de_amenaza_que_no_aporta_esta_fuente_se_ignora(red):
     assert SafeBrowsing(CLAVE).consultar(URL).estado is Estado.DESCONOCIDO
 
 
-def test_acepta_base64_de_url_y_sin_relleno(red):
-    completo = sha("web-falsa.example/")
-    texto = base64.urlsafe_b64encode(completo).decode().rstrip("=")
-    cuerpo = {"fullHashes": [{"fullHash": texto, "fullHashDetails": [{"threatType": "MALWARE"}]}]}
-    red(RespuestaSegura(RESULTADO_OK, codigo_http=200, cuerpo=json.dumps(cuerpo).encode()))
-    assert SafeBrowsing(CLAVE).consultar(URL).estado is Estado.DETECCION
+def test_lee_la_respuesta_real_de_google_en_protobuf(red):
+    pedidas = red(RespuestaSegura(RESULTADO_OK, codigo_http=200, cuerpo=RESPUESTA_REAL))
+    resultado = SafeBrowsing(CLAVE).consultar("https://" + EXPRESION_REAL)
+    assert resultado.estado is Estado.DETECCION
+    assert resultado.datos == {"tipos": ["pagina_falsa"]}
+    # La v5 responde 400 si se le pide JSON.
+    assert "alt=" not in pedidas[0][0]
+
+
+def test_la_deteccion_dice_los_tipos_con_pagina_falsa_primero(red):
+    tipos = ["POTENTIALLY_HARMFUL_APPLICATION", "MALWARE", "SOCIAL_ENGINEERING", "TIPO_NUEVO"]
+    red(google([(sha("web-falsa.example/"), tipos)]))
+    resultado = SafeBrowsing(CLAVE).consultar(URL)
+    assert resultado.datos == {
+        "tipos": ["pagina_falsa", "programa_danino", "aplicacion_riesgosa"]
+    }
+
+
+def test_una_respuesta_sin_hallazgos_solo_trae_la_vigencia(red):
+    red(RespuestaSegura(RESULTADO_OK, codigo_http=200, cuerpo=bytes.fromhex("120308ac02")))
+    resultado = SafeBrowsing(CLAVE).consultar(URL)
+    assert (resultado.estado, resultado.datos) == (Estado.DESCONOCIDO, {})
 
 
 @pytest.mark.parametrize(("respuesta", "motivo"), [
@@ -150,10 +184,14 @@ def test_acepta_base64_de_url_y_sin_relleno(red):
     (google([], codigo=403), MOTIVO_ERROR),
     (google([], codigo=429), MOTIVO_ERROR),
     (RespuestaSegura(RESULTADO_OK, codigo_http=200, cuerpo=b"\x0a\x22binario"), MOTIVO_ERROR),
+    # JSON donde se espera protobuf.
     (RespuestaSegura(RESULTADO_OK, codigo_http=200, cuerpo=b'{"fullHashes": [{"x": 1}]}'),
      MOTIVO_ERROR),
-    (RespuestaSegura(RESULTADO_OK, codigo_http=200,
-                     cuerpo=b'{"fullHashes": [{"fullHash": "###", "fullHashDetails": []}]}'),
+    # Un número que no termina.
+    (RespuestaSegura(RESULTADO_OK, codigo_http=200, cuerpo=b"\x08" + b"\xff" * 12),
+     MOTIVO_ERROR),
+    # Un hash cortado dentro de un resultado.
+    (RespuestaSegura(RESULTADO_OK, codigo_http=200, cuerpo=b"\x0a\x03\x0a\x20\x01"),
      MOTIVO_ERROR),
 ])
 def test_un_error_de_google_es_el_estado_fallo(red, respuesta, motivo):
