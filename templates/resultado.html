@@ -18,13 +18,14 @@
         <p class="resultado-dominio"><span class="oculto">Web que abre el enlace: </span>{{ dominio }}</p>
       </div>
       <div class="resultado-cuerpo">
+        <p class="resultado-titular">{{ explicacion.titular }}</p>
         {% if explicacion.aclaracion %}<p class="resultado-aclaracion">{{ explicacion.aclaracion }}</p>{% endif %}
         <h2 class="resultado-titulo">Por qué</h2>
         <ul class="motivos">
           {% for motivo in explicacion.motivos %}<li>{{ motivo }}</li>
           {% endfor %}
         </ul>
-        <h2 class="resultado-titulo">Qué hacer</h2>
+        <h2 class="resultado-titulo resultado-titulo-accion">Qué hacer</h2>
         <ol class="acciones">
           {% for accion in explicacion.acciones %}<li>{{ accion }}</li>
           {% endfor %}
@@ -38,13 +39,35 @@
         {% endif %}
         <details class="detalle">
           <summary>Ver detalle técnico</summary>
+          <h3 class="detalle-subtitulo detalle-primero">Lo que revisamos</h3>
           <dl class="detalle-lista">
             <div><dt>Web que abre el enlace<span class="detalle-nota">El nombre real, aunque el enlace muestre otro.</span></dt><dd class="mono">{{ dominio }}</dd></div>
             {% for termino, valor, nota in explicacion.detalle %}
             <div><dt>{{ termino }}<span class="detalle-nota">{{ nota }}</span></dt><dd>{{ valor }}</dd></div>
             {% endfor %}
-            {% if fecha %}<div><dt>Fecha del análisis<span class="detalle-nota">Una web puede cambiar después de esta fecha.</span></dt><dd>{{ fecha|date:"j \d\e F \d\e Y, H:i" }}</dd></div>{% endif %}
           </dl>
+          {% if explicacion.fuentes %}
+          <div class="detalle-fuentes">
+            <h3 class="detalle-subtitulo">Servicios de seguridad consultados</h3>
+            <p class="detalle-fuentes-nota">{{ nota_fuentes }}</p>
+            {% for grupo in explicacion.fuentes %}
+            <h4 class="fuentes-grupo">{{ grupo.titulo }}</h4>
+            <ul class="fuentes">
+              {% for fuente in grupo.fuentes %}
+              <li>
+                <p class="fuente-cabeza"><b>{{ fuente.nombre }}</b> <span>{{ fuente.estado }}</span></p>
+                {% if fuente.datos %}
+                <ul class="fuente-datos">
+                  {% for dato in fuente.datos %}<li>{{ dato }}</li>
+                  {% endfor %}
+                </ul>
+                {% endif %}
+              </li>
+              {% endfor %}
+            </ul>
+            {% endfor %}
+          </div>
+          {% endif %}
           <div class="detalle-senales">
             <h3 class="detalle-subtitulo">Señales en la dirección</h3>
             {% if explicacion.senales %}
@@ -56,6 +79,13 @@
             <p>No encontramos ninguna.</p>
             {% endif %}
           </div>
+          <h3 class="detalle-subtitulo detalle-seccion">Cómo llegamos al resultado</h3>
+          <dl class="detalle-lista">
+            {% for termino, valor, nota in explicacion.calculo %}
+            <div><dt>{{ termino }}<span class="detalle-nota">{{ nota }}</span></dt><dd>{{ valor }}</dd></div>
+            {% endfor %}
+            {% if fecha %}<div><dt>Fecha del análisis<span class="detalle-nota">Una web puede cambiar después de esta fecha.</span></dt><dd>{{ fecha|date:"j \d\e F \d\e Y, H:i" }}</dd></div>{% endif %}
+          </dl>
         </details>
       </div>
     </article>

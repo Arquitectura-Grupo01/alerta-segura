@@ -24,7 +24,7 @@ class PhishTank(Fuente):
         resultado = datos["results"]
         figura = _si(resultado.get("in_database"))
         if figura and _si(resultado.get("verified")) and _si(resultado.get("valid")):
-            return self.deteccion()
+            return self.deteccion(datos={"tipos": ["pagina_falsa"]})
         return self.desconocido()
 
 

@@ -2,7 +2,8 @@
 
 Cada proveedor es una subclase de `Fuente` que escribe `_consultar`. La clase base
 pone lo que comparten todas: circuit breaker, cuota diaria, presupuesto global y la
-regla de que solo un análisis de las últimas 24 h puede decir «sin detecciones».
+regla de que solo un análisis vigente puede decir «sin detecciones». La vigencia
+depende de la edad de la web y la fija la versión de reglas: ver `aplicar_vigencia`.
 `consultar_fuentes` las llama en paralelo con un plazo total, y `resumir` entrega al
 motor de riesgo el valor de la categoría.
 
@@ -15,7 +16,7 @@ import hashlib
 import json
 import logging
 from concurrent.futures import ThreadPoolExecutor, wait
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import Enum
 
@@ -31,7 +32,12 @@ logger = logging.getLogger(__name__)
 
 FALLOS_PARA_ABRIR = 3
 SEGUNDOS_ABIERTO = 5 * 60
-VIGENCIA_ANALISIS = timedelta(hours=24)
+# Un análisis más viejo que esto nunca cuenta, tenga la edad que tenga la web. El plazo
+# de cada análisis lo acorta después `aplicar_vigencia`.
+VIGENCIA_MAXIMA = timedelta(days=30)
+# Desde cuántas fuentes una sospecha cuenta. Una sola no alcanza: 1 antivirus entre 90
+# o una IP compartida con reportes se equivocan seguido.
+FUENTES_PARA_SOSPECHA = 2
 # Las respuestas crudas de terceros viven 24 h como máximo.
 VIGENCIA_CRUDA_SEGUNDOS = 24 * 60 * 60
 PLAZO_POR_FUENTE_SEGUNDOS = 4
@@ -45,6 +51,9 @@ MOTIVO_CUOTA = "cuota_agotada"
 MOTIVO_PRESUPUESTO = "presupuesto_agotado"
 MOTIVO_TIEMPO = "tiempo_agotado"
 MOTIVO_ERROR = "error"
+# Matiza una detección: la fuente la marca como peligrosa, pero no dice de qué tipo ni
+# hay acuerdo entre sus motores. No confirma nada por sí sola.
+MOTIVO_SIN_CATEGORIA = "sin_categoria"
 # Códigos con que un proveedor dice que se pasó su cuota. PhishTank usa 509.
 CODIGOS_DE_CUOTA = frozenset({429, 509})
 
@@ -72,8 +81,13 @@ class Respuesta:
     estado: Estado
     # De 0 a 100, solo con detección.
     valor: int | None = None
-    # Por qué falló, con los códigos MOTIVO_*.
+    # Por qué falló o qué matiza el estado, con los códigos MOTIVO_*.
     motivo: str = ""
+    # Lo que la fuente contó además del estado: motores, fechas, reportes. Son datos de un
+    # tercero: solo se guardan en la caché técnica, con `guardar_detalles`.
+    datos: dict = field(default_factory=dict)
+    # Fecha del análisis del proveedor, solo con «sin detecciones».
+    analizado: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -84,6 +98,8 @@ class Resumen:
     valor: int | None
     # Fuentes que confirman página falsa o programa dañino.
     confirmaciones: int
+    # Una fuente la marca como peligrosa sin decir de qué tipo y ninguna lo confirma.
+    en_duda: bool = False
 
 
 class Fuente:
@@ -103,12 +119,19 @@ class Fuente:
         self.clave = clave
         registrar_clave(clave)
 
+    # True si `_consultar` recibe también la web, para dar su reputación.
+    usa_web = False
+
     def disponible(self) -> bool:
         """False si la fuente no se puede usar, por ejemplo sin clave. Entonces se omite."""
         return bool(self.clave) or not self.requiere_clave
 
-    def consultar(self, url: str) -> Respuesta:
-        """Consulta la fuente sin lanzar excepciones: un error es el estado «falló»."""
+    def consultar(self, url: str, web: str = "") -> Respuesta:
+        """Consulta la fuente sin lanzar excepciones: un error es el estado «falló».
+
+        `web` es el nombre de la web de destino cuando tiene reputación propia. Va vacío
+        en un alojamiento compartido, donde la web no dice nada de cada página.
+        """
         if cache.get(self._clave("abierto")):
             return self.fallo(MOTIVO_CIRCUITO)
         if not self._queda_cuota():
@@ -117,7 +140,7 @@ class Fuente:
             return self.fallo(MOTIVO_PRESUPUESTO)
         self._gastar_cuota()
         try:
-            respuesta = self._consultar(url)
+            respuesta = self._consultar(url, web) if self.usa_web else self._consultar(url)
         except FalloDeFuente as error:
             logger.warning("La fuente %s falló: %s", self.nombre, error.motivo)
             respuesta = self.fallo(error.motivo)
@@ -172,21 +195,36 @@ class Fuente:
 
     # Respuestas que arma la subclase
 
-    def deteccion(self, valor: int = VALOR_CONFIRMA) -> Respuesta:
-        return Respuesta(self.nombre, Estado.DETECCION, valor=valor)
+    def deteccion(
+        self, valor: int = VALOR_CONFIRMA, datos: dict | None = None, motivo: str = ""
+    ) -> Respuesta:
+        return Respuesta(
+            self.nombre, Estado.DETECCION, valor=valor, motivo=motivo, datos=datos or {}
+        )
 
-    def sin_detecciones(self, analizado: datetime | None) -> Respuesta:
+    def sin_detecciones(self, analizado: datetime | None, datos: dict | None = None) -> Respuesta:
         """`analizado` es la fecha del análisis del proveedor. Si es viejo, no cuenta."""
         ahora = datetime.now(UTC)
         vigente = (
             analizado is not None
             and analizado.tzinfo is not None
-            and ahora - VIGENCIA_ANALISIS <= analizado <= ahora
+            and ahora - VIGENCIA_MAXIMA <= analizado <= ahora
         )
-        return Respuesta(self.nombre, Estado.SIN_DETECCIONES if vigente else Estado.DESCONOCIDO)
+        if not vigente:
+            return Respuesta(self.nombre, Estado.DESCONOCIDO, datos=datos or {})
+        return Respuesta(
+            self.nombre, Estado.SIN_DETECCIONES, datos=datos or {}, analizado=analizado
+        )
 
-    def desconocido(self) -> Respuesta:
-        return Respuesta(self.nombre, Estado.DESCONOCIDO)
+    def otra_consulta(self) -> bool:
+        """Reserva cuota para una segunda consulta dentro del mismo análisis."""
+        if not self._queda_cuota():
+            return False
+        self._gastar_cuota()
+        return True
+
+    def desconocido(self, datos: dict | None = None) -> Respuesta:
+        return Respuesta(self.nombre, Estado.DESCONOCIDO, datos=datos or {})
 
     def fallo(self, motivo: str = MOTIVO_ERROR) -> Respuesta:
         return Respuesta(self.nombre, Estado.FALLO, motivo=motivo)
@@ -281,7 +319,10 @@ _FUENTES: list[Fuente] | None = None
 
 
 def consultar_fuentes(
-    fuentes: list[Fuente], url: str, plazo_segundos: float = PLAZO_FUENTES_SEGUNDOS
+    fuentes: list[Fuente],
+    url: str,
+    plazo_segundos: float = PLAZO_FUENTES_SEGUNDOS,
+    web: str = "",
 ) -> list[Respuesta]:
     """Consulta todas las fuentes a la vez y devuelve una respuesta por cada una.
 
@@ -291,7 +332,9 @@ def consultar_fuentes(
     if not fuentes:
         return []
     ejecutor = ThreadPoolExecutor(max_workers=len(fuentes), thread_name_prefix="fuente")
-    futuros = {ejecutor.submit(_consultar_en_hilo, fuente, url): fuente for fuente in fuentes}
+    futuros = {
+        ejecutor.submit(_consultar_en_hilo, fuente, url, web): fuente for fuente in fuentes
+    }
     terminados, _ = wait(futuros, timeout=plazo_segundos)
     # No se espera a las lentas: su propio plazo de red las corta.
     ejecutor.shutdown(wait=False, cancel_futures=True)
@@ -301,9 +344,9 @@ def consultar_fuentes(
     ]
 
 
-def _consultar_en_hilo(fuente: Fuente, url: str) -> Respuesta:
+def _consultar_en_hilo(fuente: Fuente, url: str, web: str = "") -> Respuesta:
     try:
-        return fuente.consultar(url)
+        return fuente.consultar(url, web)
     except Exception as error:
         # La caché compartida también puede fallar, y un hilo no debe tumbar el análisis.
         logger.warning("La fuente %s falló: %s", fuente.nombre, type(error).__name__)
@@ -313,14 +356,155 @@ def _consultar_en_hilo(fuente: Fuente, url: str) -> Respuesta:
         connections.close_all()
 
 
-def resumir(respuestas: list[Respuesta]) -> Resumen:
-    """Valor de la categoría de fuentes: el más alto entre las que tienen evidencia."""
-    valores = [
-        respuesta.valor or 0
+def aplicar_vigencia(respuestas: list[Respuesta], vigencia: timedelta) -> list[Respuesta]:
+    """Deja como «desconocido» los análisis sin hallazgos más viejos que `vigencia`.
+
+    La vigencia depende de la edad de la web, que se conoce después de consultar: un día
+    para una web nueva o sin edad conocida y más para una antigua. Lo que contó la fuente
+    se conserva para el detalle técnico.
+    """
+    limite = datetime.now(UTC) - vigencia
+    return [
+        Respuesta(respuesta.fuente, Estado.DESCONOCIDO, datos=respuesta.datos)
+        if respuesta.estado is Estado.SIN_DETECCIONES
+        and (respuesta.analizado is None or respuesta.analizado < limite)
+        else respuesta
         for respuesta in respuestas
-        if respuesta.estado in (Estado.DETECCION, Estado.SIN_DETECCIONES)
     ]
-    return Resumen(
-        valor=max(valores) if valores else None,
-        confirmaciones=sum(1 for valor in valores if valor >= VALOR_CONFIRMA),
+
+
+def edad_informada(respuestas: list[Respuesta]) -> int | None:
+    """Edad de la web en días según las fuentes: la menor, o None si ninguna la dio.
+
+    `conocida_dias` es un mínimo, desde cuándo la fuente conoce la web: sirve igual,
+    porque la web tiene al menos esa edad.
+    """
+    edades = [
+        respuesta.datos.get(dato)
+        for respuesta in respuestas
+        if respuesta.estado is not Estado.FALLO
+        for dato in ("edad_web_dias", "conocida_dias")
+    ]
+    edades = [
+        edad for edad in edades
+        if isinstance(edad, int) and not isinstance(edad, bool) and edad >= 0
+    ]
+    return min(edades) if edades else None
+
+
+def resumir(respuestas: list[Respuesta]) -> Resumen:
+    """Valor de la categoría de fuentes: el más alto entre las que tienen evidencia.
+
+    Una confirmación cuenta sola. Una sospecha cuenta desde FUENTES_PARA_SOSPECHA
+    fuentes; una sola no suma puntaje ni impide que otra fuente diga «sin detecciones».
+    """
+    detecciones = [
+        respuesta.valor or 0 for respuesta in respuestas if respuesta.estado is Estado.DETECCION
+    ]
+    confirmaciones = sum(1 for valor in detecciones if valor >= VALOR_CONFIRMA)
+    sospechas = [valor for valor in detecciones if 0 < valor < VALOR_CONFIRMA]
+    limpias = any(respuesta.estado is Estado.SIN_DETECCIONES for respuesta in respuestas)
+    if confirmaciones:
+        valor = max(detecciones)
+    elif len(sospechas) >= FUENTES_PARA_SOSPECHA:
+        valor = max(sospechas)
+    elif limpias:
+        valor = 0
+    else:
+        valor = None
+    en_duda = not confirmaciones and any(
+        respuesta.estado is Estado.DETECCION and respuesta.motivo == MOTIVO_SIN_CATEGORIA
+        for respuesta in respuestas
     )
+    return Resumen(valor=valor, confirmaciones=confirmaciones, en_duda=en_duda)
+
+
+# Detalle de las fuentes: lo que cada una contó de una dirección, para el detalle técnico.
+
+MAX_TEXTO_DE_DETALLE = 60
+MAX_ELEMENTOS_DE_DETALLE = 4
+
+
+def limpiar_datos(datos: dict) -> dict:
+    """Deja solo datos simples y cortos: lo que no sirve se quita en vez de mostrarse vacío.
+
+    Un proveedor puede cambiar su respuesta, y parte de ella la escribe quien montó la
+    página (el nombre de un servidor, por ejemplo). Aquí se acota; la plantilla la escapa.
+    """
+    limpios = {}
+    for nombre, valor in datos.items():
+        if isinstance(valor, list):
+            valor = [_texto(elemento) for elemento in valor[:MAX_ELEMENTOS_DE_DETALLE]]
+            valor = [elemento for elemento in valor if elemento]
+        elif isinstance(valor, str):
+            valor = _texto(valor)
+        elif isinstance(valor, bool):
+            pass
+        elif not isinstance(valor, int) or valor < 0:
+            valor = None
+        if valor not in (None, "", []):
+            limpios[nombre] = valor
+    return limpios
+
+
+def _texto(valor) -> str:
+    if not isinstance(valor, str):
+        return ""
+    visible = "".join(letra if letra.isprintable() else " " for letra in valor)
+    return " ".join(visible.split())[:MAX_TEXTO_DE_DETALLE]
+
+
+def fecha_iso(valor) -> str:
+    """Una fecha del proveedor, en segundos o en texto ISO, como ISO en UTC. Vacío si no sirve."""
+    try:
+        if isinstance(valor, bool):
+            return ""
+        if isinstance(valor, int):
+            fecha = datetime.fromtimestamp(valor, UTC)
+        elif isinstance(valor, str):
+            fecha = datetime.fromisoformat(valor.strip().replace(" UTC", "+00:00"))
+            if fecha.tzinfo is None:
+                fecha = fecha.replace(tzinfo=UTC)
+        else:
+            return ""
+    except (ValueError, OverflowError, OSError):
+        return ""
+    return fecha.astimezone(UTC).isoformat(timespec="seconds")
+
+
+def guardar_detalles(consulta: str, fuentes: list[Fuente], respuestas: list[Respuesta]) -> None:
+    """Guarda en la caché técnica, 24 h, lo que cada fuente contó de un análisis."""
+    detalles = {
+        fuente.titulo or fuente.nombre: limpiar_datos(respuesta.datos)
+        for fuente, respuesta in zip(fuentes, respuestas, strict=True)
+    }
+    detalles = {titulo: datos for titulo, datos in detalles.items() if datos}
+    if not detalles:
+        return
+    try:
+        caches["tecnica"].set(
+            _clave_de_detalles(consulta), detalles, timeout=VIGENCIA_CRUDA_SEGUNDOS
+        )
+    except Exception as error:
+        # El detalle es un extra: sin él, el resultado se muestra igual.
+        logger.warning("No se guardó el detalle de las fuentes: %s", type(error).__name__)
+
+
+def leer_detalles(consulta: str) -> dict[str, dict]:
+    """Detalle por título de fuente. Vacío si venció, si no hubo o si la caché falla."""
+    try:
+        detalles = caches["tecnica"].get(_clave_de_detalles(consulta))
+    except Exception as error:
+        logger.warning("No se leyó el detalle de las fuentes: %s", type(error).__name__)
+        return {}
+    if not isinstance(detalles, dict):
+        return {}
+    return {
+        titulo: limpiar_datos(datos)
+        for titulo, datos in detalles.items()
+        if isinstance(titulo, str) and isinstance(datos, dict)
+    }
+
+
+def _clave_de_detalles(consulta: str) -> str:
+    return "detalle:" + hashlib.sha256(consulta.encode("utf-8", "surrogatepass")).hexdigest()

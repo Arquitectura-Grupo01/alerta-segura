@@ -186,3 +186,20 @@ def test_textos_y_claves_de_los_niveles():
     textos = ["Seguro", "Ten cuidado", "Peligroso", "Peligro alto"]
     assert [nivel.texto for nivel in Nivel] == textos
     assert [nivel.clave for nivel in Nivel] == ["seguro", "cuidado", "peligroso", "alto"]
+
+
+# --- Evidencia contradictoria de las fuentes ----------------------------------
+
+def test_una_fuente_no_concluyente_da_ten_cuidado_y_nunca_seguro_ni_peligroso():
+    limpia = Senales(heuristicas=(), edad_dias=9000, marca=0, fuentes=0)
+    assert calcular(limpia).nivel == Nivel.SEGURO
+    en_duda = calcular(Senales(heuristicas=(), edad_dias=9000, marca=0, fuentes=0,
+                               fuentes_en_duda=True))
+    assert en_duda.nivel == Nivel.TEN_CUIDADO
+    assert "fuente_no_concluyente" in en_duda.reglas
+
+
+def test_si_otra_fuente_confirma_la_duda_ya_no_es_la_regla_que_decide():
+    veredicto = calcular(Senales(fuentes=100, fuentes_con_deteccion=1, fuentes_en_duda=True))
+    assert veredicto.nivel == Nivel.PELIGROSO
+    assert "fuente_no_concluyente" not in veredicto.reglas

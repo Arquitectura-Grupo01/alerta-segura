@@ -1,5 +1,6 @@
 """Modelo del análisis, caché de resultados y orquestador, de punta a punta."""
 
+import json
 import re
 import threading
 import uuid
@@ -15,10 +16,11 @@ from django.utils import timezone
 from analisis import orquestador
 from analisis.models import Analisis
 from analisis.normalizacion import normalizar
+from catalogo.models import DominioOficial, Marca
 from core.models import InvalidacionDominio
 from core.resultados import clave_de_resultado, leer_resultado
 from inteligencia import fuentes as modulo_fuentes
-from inteligencia.fuentes import Fuente
+from inteligencia.fuentes import MOTIVO_CUOTA, FalloDeFuente, Fuente
 from motor import cache as cache_motor
 from motor.cache import (
     descartar_resultado,
@@ -186,7 +188,7 @@ def test_otra_version_de_reglas_no_ve_los_resultados_de_la_anterior():
     veredicto = calcular(Senales())
     guardar_resultado(URL, veredicto, _datos(veredicto))
     assert leer_resultado(URL, veredicto.version) is not None
-    assert leer_resultado(URL, "2") is None
+    assert leer_resultado(URL, "otra") is None
 
 
 @pytest.mark.parametrize("invalidado", ["web-final.example", "acortador.example"])
@@ -250,8 +252,9 @@ def test_del_formulario_a_la_pagina_de_resultado_con_fuentes_simuladas(client, f
     assert pagina.status_code == 200
     assert pagina["Cache-Control"] == "no-store"
     assert 'id="resultado-nivel">Peligroso</h1>' in html
-    assert "Una lista de seguridad la tiene reportada" in html
-    assert "<dt>Lista de prueba" in html and "<dd>La tiene reportada</dd>" in html
+    assert "<li>Lista de prueba la tiene reportada como página falsa o peligrosa.</li>" in html
+    assert "<b>Lista de prueba</b> <span>La tiene reportada</span>" in html
+    assert ">Con evidencia</h4>" in html
     assert "<dt>Fecha del análisis" in html
     assert "Analizado hace" not in html
 
@@ -375,3 +378,236 @@ def test_solo_el_motor_escribe_en_la_cache_de_resultados():
             texto = archivo.read_text(encoding="utf-8")
             escribe = re.search(r'caches\[(CACHE|"resultados")\]\.(set|delete|clear)', texto)
             assert not escribe, archivo
+
+
+# --- Lo que contó cada fuente ------------------------------------------------
+
+DETALLE = {"motores_peligrosa": 9, "motores_total": 93, "amenazas": ["<b>Nombre</b>"]}
+
+
+def test_el_detalle_de_la_fuente_se_ve_en_el_resultado_y_escapado(client, fuente):
+    fuente(lambda f: f.deteccion(datos=DETALLE))
+    html = analizar(client, "https://ejemplo.pe/confirmar").content.decode()
+    assert "<li>9 de 93 antivirus la marcan como peligrosa.</li>" in html
+    assert "&lt;b&gt;Nombre&lt;/b&gt;" in html and "<b>Nombre</b>" not in html
+
+
+def test_el_detalle_de_la_fuente_no_llega_a_la_base_ni_a_la_cache_de_resultados(client, fuente):
+    fuente(lambda f: f.deteccion(datos=DETALLE))
+    analizar(client, "https://ejemplo.pe/confirmar")
+    guardado = Analisis.objects.get()
+    assert guardado.fuentes == [
+        {"fuente": "contada", "titulo": "Lista de prueba", "estado": "deteccion", "valor": 100}
+    ]
+    assert "93" not in json.dumps([guardado.senales, guardado.fuentes, guardado.reglas])
+    url = normalizar("https://ejemplo.pe/confirmar").url
+    en_cache = leer_resultado(url, VERSION_INICIAL.numero)
+    assert "motores_total" not in json.dumps(en_cache) and "Nombre" not in json.dumps(en_cache)
+
+
+def test_un_resultado_de_la_cache_muestra_el_mismo_detalle(client, fuente):
+    simulada = fuente(lambda f: f.deteccion(datos=DETALLE))
+    analizar(client, "https://ejemplo.pe/confirmar")
+    html = analizar(client, "https://ejemplo.pe/confirmar").content.decode()
+    assert simulada.llamadas == 1
+    assert "<li>9 de 93 antivirus la marcan como peligrosa.</li>" in html
+
+
+def test_pasado_un_dia_el_detalle_ya_no_esta_y_el_resultado_se_ve_igual(client, fuente):
+    fuente(lambda f: f.deteccion(datos=DETALLE))
+    respuesta = analizar(client, "https://ejemplo.pe/confirmar")
+    caches["tecnica"].clear()
+    html = client.get(respuesta.request["PATH_INFO"]).content.decode()
+    assert 'id="resultado-nivel">Peligroso</h1>' in html
+    assert "<b>Lista de prueba</b> <span>La tiene reportada</span>" in html
+    assert "antivirus" not in html and 'class="fuente-datos"' not in html
+
+
+def test_sin_fuentes_consultadas_no_aparece_el_bloque_de_servicios(client):
+    html = analizar(client, "https://ejemplo.pe/confirmar").content.decode()
+    assert "Servicios de seguridad consultados" not in html
+
+
+# --- Vigencia según la edad, edad de respaldo y catálogo ---------------------
+
+def hace_dias(dias):
+    return timezone.now() - timedelta(days=dias)
+
+
+@pytest.fixture
+def edad(monkeypatch):
+    def poner(dias):
+        monkeypatch.setattr(orquestador, "edad_en_dias", lambda dominios: dias)
+
+    return poner
+
+
+@pytest.mark.parametrize(("edad_dias", "dias_del_analisis", "nivel"), [
+    # Una web antigua con un análisis limpio de hace 10 días sale Seguro.
+    (4000, 10, Nivel.SEGURO),
+    (4000, 29, Nivel.SEGURO),
+    (4000, 31, Nivel.TEN_CUIDADO),
+    # Con menos de un año, el análisis vale 7 días.
+    (200, 6, Nivel.SEGURO),
+    (200, 10, Nivel.TEN_CUIDADO),
+    # Una web nueva nunca sale Seguro, ni con un análisis de hoy.
+    (10, 0, Nivel.TEN_CUIDADO),
+    # Sin edad conocida vale el plazo más corto: un día.
+    (None, 2, Nivel.TEN_CUIDADO),
+])
+def test_un_analisis_limpio_vale_mas_tiempo_en_una_web_antigua(
+    client, fuente, edad, edad_dias, dias_del_analisis, nivel
+):
+    edad(edad_dias)
+    fuente(lambda f: f.sin_detecciones(hace_dias(dias_del_analisis)))
+    analizar(client, "https://ejemplo.com/inicio")
+    assert Analisis.objects.get().nivel == nivel
+
+
+@pytest.mark.parametrize(("dias_del_analisis", "estado", "cubre"), [
+    (6, "sin_detecciones", True),
+    (10, "desconocido", False),
+])
+def test_un_analisis_fuera_de_su_plazo_queda_como_desconocido(
+    client, fuente, edad, dias_del_analisis, estado, cubre
+):
+    edad(200)
+    fuente(lambda f: f.sin_detecciones(hace_dias(dias_del_analisis)))
+    analizar(client, "https://ejemplo.com/inicio")
+    guardado = Analisis.objects.get()
+    assert guardado.fuentes[0]["estado"] == estado
+    assert (guardado.senales["fuentes"] == 0) is cubre
+
+
+def test_sin_fecha_en_el_registro_vale_la_edad_que_dan_las_fuentes(client, fuente):
+    fuente(lambda f: f.sin_detecciones(hace_dias(10), {"edad_web_dias": 3500}))
+    analizar(client, "https://ejemplo.pe/inicio")
+    guardado = Analisis.objects.get()
+    assert guardado.senales["edad_dias"] == 3500
+    assert guardado.nivel == Nivel.SEGURO
+
+
+def test_la_edad_del_registro_manda_sobre_la_de_las_fuentes(client, fuente, edad):
+    edad(12)
+    fuente(lambda f: f.sin_detecciones(hace_dias(0), {"edad_web_dias": 3500}))
+    analizar(client, "https://ejemplo.com/inicio")
+    guardado = Analisis.objects.get()
+    assert guardado.senales["edad_dias"] == 12
+    assert guardado.nivel == Nivel.TEN_CUIDADO
+
+
+@pytest.mark.parametrize("enlace", [
+    "https://estafa.netlify.app/inicio",
+    "http://192.0.2.10/inicio",
+])
+def test_en_un_alojamiento_compartido_no_valen_la_edad_ni_la_reputacion_de_la_web(
+    client, monkeypatch, enlace
+):
+    vistas = []
+
+    class ConWeb(Contada):
+        usa_web = True
+
+        def _consultar(self, url, web=""):
+            vistas.append(web)
+            return self.sin_detecciones(hace_dias(10), {"edad_web_dias": 3500})
+
+    monkeypatch.setattr(modulo_fuentes, "_FUENTES", [ConWeb(None)])
+    analizar(client, enlace)
+    guardado = Analisis.objects.get()
+    assert vistas == [""]
+    assert guardado.senales["edad_dias"] is None
+    assert guardado.nivel >= Nivel.TEN_CUIDADO
+
+
+def test_la_fuente_recibe_la_web_cuando_tiene_reputacion_propia(client, monkeypatch):
+    vistas = []
+
+    class ConWeb(Contada):
+        usa_web = True
+
+        def _consultar(self, url, web=""):
+            vistas.append(web)
+            return self.desconocido()
+
+    monkeypatch.setattr(modulo_fuentes, "_FUENTES", [ConWeb(None)])
+    analizar(client, "https://www.ejemplo.pe/inicio")
+    assert vistas == ["www.ejemplo.pe"]
+
+
+def _oficial(dominio, estado=DominioOficial.Estado.APROBADO, activa=True):
+    marca = Marca.objects.create(nombre=f"Marca de {dominio}", tipo=Marca.Tipo.BANCO, activa=activa)
+    DominioOficial.objects.create(
+        marca=marca, dominio=dominio, estado=estado,
+        fuente_verificacion="https://registro.example/ficha",
+    )
+
+
+def test_sin_dominios_aprobados_la_marca_queda_sin_dato(client):
+    _oficial("banco-de-prueba.pe", estado=DominioOficial.Estado.PENDIENTE)
+    _oficial("otro-banco.pe", activa=False)
+    analizar(client, "https://ejemplo.pe/inicio")
+    guardado = Analisis.objects.get()
+    assert guardado.senales["marca"] is None
+    assert guardado.cobertura == pytest.approx(16.7)
+
+
+def test_con_el_catalogo_la_marca_cuenta_para_la_cobertura(client):
+    _oficial("banco-de-prueba.pe")
+    analizar(client, "https://ejemplo.pe/inicio")
+    guardado = Analisis.objects.get()
+    assert guardado.senales["marca"] == 0
+    # Heurísticas y marca: 25 de 90.
+    assert guardado.cobertura == pytest.approx(27.8)
+
+
+def test_una_web_que_imita_a_una_marca_del_catalogo_sube_de_nivel(client, edad):
+    edad(5)
+    _oficial("banco-de-prueba.pe")
+    analizar(client, "https://banco-de-prueba.pe.sitio-falso.com/inicio")
+    guardado = Analisis.objects.get()
+    assert guardado.senales["marca"] == 100
+    assert "suplantacion_en_web_nueva" in guardado.reglas
+    assert guardado.nivel >= Nivel.PELIGROSO
+
+
+# --- Un servicio sin cupo ------------------------------------------------------
+
+def _sin_cupo(f):
+    raise FalloDeFuente(MOTIVO_CUOTA)
+
+
+def test_un_servicio_sin_cupo_lo_dice_el_resultado_y_no_dice_que_fallo(client, fuente):
+    fuente(_sin_cupo)
+    html = analizar(client, "https://ejemplo.pe/inicio").content.decode()
+    assert "<b>Lista de prueba</b> <span>Llegó a su límite de consultas por ahora</span>" in html
+    assert "Lista de prueba llegó a su límite de consultas. Vuelve a analizarla" in html
+    assert "No pudimos consultar los servicios de seguridad." not in html
+    assert Analisis.objects.get().fuentes == [{
+        "fuente": "contada", "titulo": "Lista de prueba", "estado": "fallo", "valor": None,
+        "motivo": "cuota_agotada",
+    }]
+
+
+def test_un_resultado_sin_cupo_se_guarda_solo_unos_minutos(client, fuente, monkeypatch):
+    vigencias = []
+    original = caches["resultados"].set
+    monkeypatch.setattr(
+        caches["resultados"], "set",
+        lambda clave, valor, timeout: (vigencias.append(timeout), original(clave, valor, timeout)),
+    )
+    fuente(_sin_cupo)
+    analizar(client, "https://ejemplo.pe/inicio")
+    fuente(lambda f: f.desconocido())
+    analizar(client, "https://ejemplo.pe/otra")
+    assert vigencias == [cache_motor.VIGENCIA_INCOMPLETO, 6 * HORA]
+
+
+def test_un_resultado_peligroso_sin_cupo_conserva_su_vigencia(monkeypatch):
+    vigencias = []
+    monkeypatch.setattr(
+        caches["resultados"], "set", lambda clave, valor, timeout: vigencias.append(timeout)
+    )
+    veredicto = calcular(Senales(fuentes=100, fuentes_con_deteccion=1))
+    guardar_resultado(URL, veredicto, _datos(veredicto), incompleto=True)
+    assert vigencias == [72 * HORA]

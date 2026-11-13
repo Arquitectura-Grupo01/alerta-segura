@@ -71,8 +71,7 @@ def test_sin_detecciones_exige_un_analisis_de_las_ultimas_24_horas():
 
 
 @pytest.mark.parametrize("analizado", [
-    hace(25),
-    hace(24 * 30),
+    hace(24 * 31),
     None,
     # Sin zona horaria no se sabe de cuándo es, y una fecha futura no es un análisis.
     datetime.now(),
@@ -269,7 +268,7 @@ def test_un_analisis_vigente_sin_hallazgos_vale_cero():
 
 def test_desconocido_y_fallo_no_son_evidencia():
     f = Simulada()
-    resumen = resumir([f.desconocido(), f.fallo(), f.sin_detecciones(hace(48))])
+    resumen = resumir([f.desconocido(), f.fallo(), f.sin_detecciones(hace(24 * 31))])
     assert (resumen.valor, resumen.confirmaciones) == (None, 0)
 
 
@@ -360,7 +359,7 @@ def test_una_deteccion_de_una_fuente_sube_el_resultado_a_peligroso(client, monke
         reverse("analizar"), {"enlace": "ejemplo.com/inicio?utm_source=chat"}, follow=True
     ).content.decode()
     assert 'id="resultado-nivel">Peligroso</h1>' in html
-    assert "Una lista de seguridad la tiene reportada" in html
+    assert "<li>simulada la tiene reportada como página falsa o peligrosa.</li>" in html
     # La fuente no recibe los parámetros de rastreo.
     assert vistas == ["https://ejemplo.com/inicio"]
 
@@ -373,4 +372,88 @@ def test_el_analisis_termina_aunque_todas_las_fuentes_fallen(client, monkeypatch
     assert res.status_code == 200
     assert 'id="resultado-nivel">Ten cuidado</h1>' in html
     assert "No pudimos consultar los servicios de seguridad." in html
-    assert html.count("<dd>No respondió</dd>") == 2
+    assert html.count("<span>No respondió</span>") == 2
+    assert ">No respondieron</h4>" in html
+    assert ">Con evidencia</h4>" not in html and ">Sin reportes</h4>" not in html
+
+
+# --- Vigencia según la edad y sospechas --------------------------------------
+
+def test_sin_detecciones_guarda_la_fecha_del_analisis():
+    analizado = hace(24 * 10)
+    respuesta = Simulada().sin_detecciones(analizado, {"motores_total": 90})
+    assert (respuesta.estado, respuesta.analizado) == (Estado.SIN_DETECCIONES, analizado)
+    assert respuesta.datos == {"motores_total": 90}
+
+
+@pytest.mark.parametrize(("horas_del_analisis", "vigencia_horas", "estado"), [
+    (23, 24, Estado.SIN_DETECCIONES),
+    (25, 24, Estado.DESCONOCIDO),
+    (24 * 6, 24 * 7, Estado.SIN_DETECCIONES),
+    (24 * 8, 24 * 7, Estado.DESCONOCIDO),
+    (24 * 29, 24 * 30, Estado.SIN_DETECCIONES),
+])
+def test_aplicar_vigencia_deja_como_desconocido_el_analisis_viejo(
+    horas_del_analisis, vigencia_horas, estado
+):
+    f = Simulada()
+    limpia = f.sin_detecciones(hace(horas_del_analisis), {"motores_total": 90})
+    [resultado] = modulo.aplicar_vigencia([limpia], timedelta(hours=vigencia_horas))
+    assert resultado.estado is estado
+    # Lo que contó la fuente se conserva para el detalle técnico.
+    assert resultado.datos == {"motores_total": 90}
+
+
+def test_aplicar_vigencia_no_toca_detecciones_ni_fallos():
+    f = Simulada()
+    respuestas = [f.deteccion(), f.deteccion(50), f.desconocido(), f.fallo()]
+    assert modulo.aplicar_vigencia(respuestas, timedelta(hours=1)) == respuestas
+
+
+def test_una_sola_sospecha_no_cuenta_y_dos_si():
+    f = Simulada()
+    una = resumir([f.deteccion(50), f.desconocido()])
+    assert (una.valor, una.confirmaciones) == (None, 0)
+    dos = resumir([f.deteccion(50), f.deteccion(50)])
+    assert (dos.valor, dos.confirmaciones) == (50, 0)
+
+
+def test_una_sola_sospecha_no_impide_que_otra_fuente_diga_sin_detecciones():
+    f = Simulada()
+    resumen = resumir([f.deteccion(50), f.sin_detecciones(hace(1))])
+    assert (resumen.valor, resumen.confirmaciones) == (0, 0)
+
+
+def test_una_confirmacion_cuenta_sola_aunque_otra_fuente_la_vea_limpia():
+    f = Simulada()
+    resumen = resumir([f.deteccion(), f.sin_detecciones(hace(1)), f.deteccion(50)])
+    assert (resumen.valor, resumen.confirmaciones) == (100, 1)
+
+
+@pytest.mark.parametrize(("datos", "edad"), [
+    ([{"edad_web_dias": 3500}, {"edad_web_dias": 40}, {}], 40),
+    ([{}, {"edad_web_dias": 0}], 0),
+    # Desde cuándo la conoce una fuente también sirve: la web tiene al menos esa edad.
+    ([{"conocida_dias": 2900}], 2900),
+    ([{"conocida_dias": 2900}, {"edad_web_dias": 500}], 500),
+    ([{"edad_web_dias": "3500"}, {"edad_web_dias": -4}, {"edad_web_dias": True}], None),
+    ([], None),
+])
+def test_la_edad_informada_es_la_menor_entre_las_fuentes(datos, edad):
+    f = Simulada()
+    assert modulo.edad_informada([f.desconocido(d) for d in datos]) == edad
+
+
+def test_la_edad_de_una_fuente_que_fallo_no_cuenta():
+    fallida = modulo.Respuesta("x", Estado.FALLO, datos={"edad_web_dias": 3500})
+    assert modulo.edad_informada([fallida]) is None
+
+
+def test_una_segunda_consulta_gasta_cuota_y_se_niega_si_no_queda():
+    class ConTope(Simulada):
+        cuota_por_minuto = 2
+
+    fuente = ConTope()
+    assert fuente.otra_consulta() is True
+    assert fuente.otra_consulta() is True
+    assert fuente.otra_consulta() is False

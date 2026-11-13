@@ -5,7 +5,7 @@ Es una lista de bloqueo: si la dirección no figura, el estado es «desconocido�
 pagado, y sus datos no se redistribuyen.
 """
 
-from inteligencia.fuentes import Fuente, Respuesta
+from inteligencia.fuentes import Fuente, Respuesta, fecha_iso
 
 URL_CONSULTA = "https://urlhaus-api.abuse.ch/v1/url/"
 
@@ -27,8 +27,16 @@ class URLhaus(Fuente):
             return self.desconocido()
         if estado != "ok":
             return self.fallo()
+        archivos = datos.get("payloads")
+        etiquetas = datos.get("tags")
+        detalle = {
+            "tipos": ["programa_danino"],
+            "agregada": fecha_iso(datos.get("date_added")),
+            "familias": etiquetas if isinstance(etiquetas, list) else None,
+            "archivos": len(archivos) if isinstance(archivos, list) and archivos else None,
+        }
         # Una dirección dada de baja ya no entrega el programa: suele ser una web
         # comprometida que se limpió.
         if datos.get("url_status") == "offline":
-            return self.desconocido()
-        return self.deteccion()
+            return self.desconocido({**detalle, "dada_de_baja": True})
+        return self.deteccion(datos=detalle)

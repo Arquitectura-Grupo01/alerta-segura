@@ -556,16 +556,16 @@ svg {
 .resultado-cuerpo { padding: 4px 24px 0; }
 
 .resultado-titulo {
-  margin-top: 22px;
-  color: var(--texto);
+  margin-top: 26px;
+  color: var(--secundario);
   font-size: 0.9375rem;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .motivos {
   display: grid;
-  gap: 10px;
-  margin: 10px 0 0;
+  gap: 12px;
+  margin: 12px 0 0;
   padding: 0;
   list-style: none;
 }
@@ -1222,10 +1222,43 @@ svg {
 
 .resultado-principal { max-width: 46rem; }
 
-.resultado-aclaracion {
-  margin-top: 20px;
+/* La frase que resume el resultado: lo primero que se lee después del nivel. */
+.resultado-titular {
+  margin-top: 22px;
   color: var(--texto);
+  font-size: 1.25rem;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  line-height: 1.35;
+  text-wrap: balance;
 }
+
+.resultado-aclaracion {
+  margin-top: 8px;
+  color: var(--secundario);
+  font-size: 0.9375rem;
+  line-height: 1.45;
+}
+
+/* «Qué hacer» empieza su propio bloque: es lo que la persona se lleva. */
+.resultado-titulo-accion {
+  margin-top: 24px;
+  padding-top: 22px;
+  border-top: 1px solid var(--linea-suave);
+}
+
+.detalle-primero,
+.detalle-seccion {
+  margin-inline: 24px;
+}
+
+.detalle-primero {
+  padding-top: 4px;
+  padding-bottom: 10px;
+  border-top: 0;
+}
+
+.detalle-seccion { padding-bottom: 10px; }
 
 .acciones {
   display: grid;
@@ -1280,6 +1313,66 @@ svg {
   color: var(--texto);
   font-size: 1rem;
   font-weight: 500;
+}
+
+/* Servicios consultados: un grupo por estado y, debajo de cada uno, lo que contó. */
+.detalle-fuentes {
+  padding: 4px 24px 8px;
+  font-size: 1rem;
+}
+
+.detalle-fuentes-nota {
+  margin-top: 6px;
+  color: var(--secundario);
+  font-size: 0.9375rem;
+  line-height: 1.4;
+}
+
+.fuentes-grupo {
+  margin-top: 20px;
+  color: var(--secundario);
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+
+.fuentes {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fuentes > li {
+  padding: 11px 0;
+  border-top: 1px solid var(--linea-suave);
+}
+
+.fuente-cabeza {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.fuente-cabeza b {
+  color: var(--texto);
+  font-weight: 500;
+}
+
+.fuente-cabeza span {
+  color: var(--cuerpo);
+  text-align: right;
+}
+
+.fuente-datos {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 0;
+  padding: 0 0 0 14px;
+  border-left: 2px solid var(--linea-suave);
+  color: var(--cuerpo);
+  font-size: 0.9375rem;
+  line-height: 1.45;
+  list-style: none;
+  overflow-wrap: anywhere;
 }
 
 .detalle-senales ul {

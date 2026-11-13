@@ -9,7 +9,7 @@ import ipaddress
 from urllib.parse import urlencode, urlsplit
 
 from core.net import DestinoBloqueado, ip_es_publica, resolver_y_validar
-from inteligencia.fuentes import Fuente, Respuesta
+from inteligencia.fuentes import Fuente, Respuesta, fecha_iso
 
 URL_CONSULTA = "https://api.abuseipdb.com/api/v2/check"
 DIAS_DE_REPORTES = 90
@@ -34,13 +34,29 @@ class AbuseIPDB(Fuente):
             encabezados={"Key": self.clave, "Accept": "application/json"},
         )
         info = datos["data"]
-        if info.get("isWhitelisted") is True:
-            return self.desconocido()
         confianza = info["abuseConfidenceScore"]
+        reportes = info.get("totalReports")
+        detalle = {
+            "ip": ip,
+            "pais": info.get("countryCode"),
+            "proveedor": info.get("isp"),
+            "red_tor": info.get("isTor") is True or None,
+        }
+        # Sin reportes, la confianza y las fechas no dicen nada: solo queda dónde está.
+        if isinstance(reportes, int) and not isinstance(reportes, bool) and reportes > 0:
+            detalle |= {
+                "reportes": reportes,
+                "periodo_dias": DIAS_DE_REPORTES,
+                "personas": info.get("numDistinctUsers"),
+                "confianza": confianza,
+                "ultimo_reporte": fecha_iso(info.get("lastReportedAt")),
+            }
+        if info.get("isWhitelisted") is True:
+            return self.desconocido({**detalle, "lista_blanca": True})
         if isinstance(confianza, int) and not isinstance(confianza, bool):
             if confianza >= UMBRAL_CONFIANZA:
-                return self.deteccion(VALOR_IP_REPORTADA)
-        return self.desconocido()
+                return self.deteccion(VALOR_IP_REPORTADA, datos=detalle)
+        return self.desconocido(detalle)
 
 
 def _ip_del_destino(host: str) -> str | None:
