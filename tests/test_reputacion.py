@@ -132,3 +132,44 @@ def test_si_la_base_falla_al_guardar_la_reputacion_el_analisis_sigue(client, mon
     monkeypatch.setattr(reputacion, "_registrar", rota)
     assert analizar(client).status_code == 200
     assert Analisis.objects.count() == 1
+
+
+# --- Hallazgos de la revisión del código ---------------------------------------
+
+def test_confirmar_un_fraude_deja_sin_efecto_el_resultado_guardado(client):
+    analizar(client)
+    assert Analisis.objects.latest("fecha").nivel < Nivel.PELIGRO_ALTO
+    reputacion.marcar_confirmado("web-de-prueba.example")
+    analizar(client)
+    ultimo = Analisis.objects.latest("id")
+    assert (ultimo.nivel, ultimo.desde_cache) == (Nivel.PELIGRO_ALTO, False)
+    assert "Nuestro equipo confirmó que es una estafa. No la abras." in client.get(
+        reverse("resultado", args=[ultimo.publico])
+    ).content.decode()
+
+
+def test_descartar_la_confirmacion_tambien_recalcula(client):
+    reputacion.marcar_confirmado("web-de-prueba.example")
+    analizar(client)
+    reputacion.marcar_confirmado("web-de-prueba.example", valor=False)
+    analizar(client)
+    ultimo = Analisis.objects.latest("id")
+    assert ultimo.desde_cache is False and "analista_confirma" not in ultimo.reglas
+
+
+def test_si_falla_el_contador_el_reporte_se_guarda_igual(client, monkeypatch):
+    from django.db import DatabaseError
+
+    from curacion.models import ReporteDesacuerdo
+    from motor.models import Reputacion as Modelo
+
+    analizar(client)
+    publico = Analisis.objects.get().publico
+
+    def rota(*args, **kwargs):
+        raise DatabaseError("sin base")
+
+    monkeypatch.setattr(Modelo.objects, "get_or_create", rota)
+    res = client.post(reverse("reportar", args=[publico]), {"tipo": "era_estafa"})
+    assert res.status_code == 302
+    assert ReporteDesacuerdo.objects.count() == 1

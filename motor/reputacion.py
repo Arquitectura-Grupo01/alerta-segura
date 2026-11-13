@@ -8,6 +8,7 @@ from django.db import DatabaseError, transaction
 from django.db.models import F, Q
 from django.utils import timezone
 
+from motor.cache import invalidar_dominio
 from motor.models import Reputacion
 
 logger = logging.getLogger(__name__)
@@ -72,13 +73,18 @@ def confirmado(urls: tuple[str, ...], dominio: str) -> bool:
 
 
 def marcar_confirmado(dominio: str, valor: bool = True, url: str = "") -> None:
-    """Lo usa la cola de curación cuando un analista confirma o descarta un fraude."""
+    """Lo usa la cola de curación cuando un analista confirma o descarta un fraude.
+
+    También deja sin efecto los resultados guardados de esa web: sin eso, la caché
+    seguiría mostrando el nivel anterior hasta vencer.
+    """
     tipo, clave = (Reputacion.Tipo.URL, huella(url)) if url else (Reputacion.Tipo.DOMINIO, dominio)
     fila, _ = Reputacion.objects.get_or_create(
         tipo=tipo, clave=clave, defaults={"dominio": dominio}
     )
     fila.confirmado_por_analista = valor
     fila.save(update_fields=["confirmado_por_analista"])
+    invalidar_dominio(dominio)
 
 
 def sumar_reporte(dominio: str, tipo_reporte: str) -> None:
@@ -88,10 +94,14 @@ def sumar_reporte(dominio: str, tipo_reporte: str) -> None:
     )
     if campo is None or not dominio:
         return
-    fila, _ = Reputacion.objects.get_or_create(
-        tipo=Reputacion.Tipo.DOMINIO, clave=dominio, defaults={"dominio": dominio}
-    )
-    Reputacion.objects.filter(pk=fila.pk).update(**{campo: F(campo) + 1})
+    try:
+        fila, _ = Reputacion.objects.get_or_create(
+            tipo=Reputacion.Tipo.DOMINIO, clave=dominio, defaults={"dominio": dominio}
+        )
+        Reputacion.objects.filter(pk=fila.pk).update(**{campo: F(campo) + 1})
+    except DatabaseError as error:
+        # El reporte ya quedó guardado: el contador es un resumen y no debe dar error.
+        logger.warning("No se sumó el reporte a la reputación: %s", type(error).__name__)
 
 
 def edad_registrada(dominio: str) -> int | None:

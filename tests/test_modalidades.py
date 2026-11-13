@@ -47,7 +47,10 @@ def test_la_pagina_se_enlaza_desde_el_pie(client):
     ("cuenta-bloqueada.example /desbloquear", "bloqueo-de-cuenta"),
     ("seguro.example /verificacion", "bloqueo-de-cuenta"),
     ("chat.example /whatsapp-codigo", "codigo-de-whatsapp"),
-    ("pagos.example /yape/constancia", "yapeo-por-error"),
+    ("pagos.example /yape/confirmar", "yapeo-por-error"),
+    # Palabras comunes en webs normales no sugieren ninguna estafa.
+    ("colegio.example /tareas/trabajo", ""),
+    ("tienda.example /regalos/validar-cupon", ""),
     ("ganadinero.example /prestamos-rapidos", "prestamo-o-trabajo-falso"),
     ("ejemplo.example /inicio", ""),
     # «carbono» contiene «bono», pero no empieza con esa palabra.
@@ -201,3 +204,19 @@ def test_si_imita_a_una_marca_en_una_web_nueva_el_titular_lo_dice():
     explicacion = explicar(calcular(senales), "x.example", marca=MarcaImitada("Banco de Prueba"))
     assert explicacion.titular == TITULAR_IMITA
     assert "Imita a Banco de Prueba en una web creada hace 4 días." in explicacion.motivos
+
+
+def test_un_dominio_oficial_no_imita_a_otro_oficial_de_la_misma_marca():
+    from analisis.heuristicas import marca_imitada
+
+    oficiales = ["bancodeprueba.pe", "bancodeprueba.com.pe"]
+    assert marca_imitada("bancodeprueba.com.pe", oficiales) == ""
+    assert marca_imitada("www.bancodeprueba.pe", oficiales) == ""
+    assert marca_imitada("bancodeprueba.pe.sitio-falso.example", oficiales) == "bancodeprueba.pe"
+
+
+@pytest.mark.django_db
+def test_la_ruta_codificada_tambien_se_reconoce(client, monkeypatch):
+    monkeypatch.setattr(modulo_fuentes, "_FUENTES", [Detecta()])
+    analizar(client, "https://cobros.example/devoluci%C3%B3n")
+    assert Analisis.objects.get().modalidad == "premio-o-bono-falso"

@@ -48,6 +48,7 @@ from motor.explicacion import (
     TIPO_SIN_DETALLE,
     TIPOS_DE_AMENAZA,
     TITULAR,
+    TITULAR_ANALISTA,
     TITULAR_EN_DUDA,
     TITULAR_IMITA,
     TITULAR_REPORTADA,
@@ -89,6 +90,7 @@ def _textos_para_la_persona():
     yield from TITULAR.values()
     yield TITULAR_SIN_HALLAZGOS
     yield TITULAR_IMITA
+    yield TITULAR_ANALISTA
     yield TITULAR_SEGURO_CON_SENALES
     yield PISTA_MODALIDAD
     yield USA_CANAL_OFICIAL

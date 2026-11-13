@@ -17,8 +17,8 @@ from motor import reputacion
 def reportar(request, publico):
     """Guarda el reporte de una persona sobre un resultado y vuelve a ese resultado.
 
-    Vive en `curacion` porque ninguna app importa de aquí. Solo agrega un reporte
-    pendiente: el veredicto, la reputación y la caché quedan como estaban.
+    Vive en `curacion` porque ninguna app importa de aquí. Agrega un reporte pendiente
+    y suma al contador de la web: el veredicto y la caché quedan como estaban.
     """
     analisis = get_object_or_404(Analisis, publico=publico)
     try:

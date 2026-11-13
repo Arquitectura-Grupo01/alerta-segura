@@ -6,6 +6,8 @@ con el mismo test y cambiarlos en un solo lugar. No llevan capturas ni datos rea
 Desde un enlace solo se reconoce la modalidad por las palabras de su dirección: es una
 pista, no una prueba, y el resultado lo dice así. La de una web del Estado o de un
 dominio oficial del catálogo nunca se marca: «sunat» en sunat.gob.pe es lo esperado.
+Solo se usan palabras poco comunes fuera de estas estafas: «trabajo», «tarea» o
+«regalo» aparecen en demasiadas webs normales.
 """
 
 import re
@@ -51,7 +53,7 @@ MODALIDADES = (
         ),
         accion="Si te dicen que te yapearon o que confirmes un pago, revisa en tu propia app "
         "si el dinero llegó.",
-        palabras=("yape", "plin", "voucher", "constancia"),
+        palabras=("yape", "plin"),
     ),
     Modalidad(
         clave="falso-asesor",
@@ -95,9 +97,7 @@ MODALIDADES = (
         ),
         accion="Tu banco no bloquea tu cuenta por un mensaje con enlace. Para salir de dudas, "
         "entra tú mismo a su app.",
-        palabras=(
-            "bloque", "desbloque", "suspend", "verific", "actualiz", "valida", "reactiv",
-        ),
+        palabras=("bloque", "desbloque", "suspend", "reactiv", "verific"),
     ),
     Modalidad(
         clave="codigo-de-whatsapp",
@@ -141,10 +141,7 @@ MODALIDADES = (
             "Para una devolución de SUNAT, entra tú mismo a su web oficial.",
         ),
         accion="Nadie te pide pagar para recibir un premio, un bono o una devolución.",
-        palabras=(
-            "premio", "sorteo", "ganador", "ganaste", "bono", "devolucion", "reembolso",
-            "sunat", "regalo",
-        ),
+        palabras=("premio", "sorteo", "ganador", "ganaste", "bono", "devolucion", "sunat"),
     ),
     Modalidad(
         clave="prestamo-o-trabajo-falso",
@@ -167,7 +164,7 @@ MODALIDADES = (
             "Si una app de préstamos amenaza a tus contactos, denúncialo en la policía.",
         ),
         accion="No pagues nada por adelantado para recibir un préstamo o un trabajo.",
-        palabras=("prestamo", "trabajo", "empleo", "tarea", "likes", "ganancia"),
+        palabras=("prestamo",),
     ),
 )
 

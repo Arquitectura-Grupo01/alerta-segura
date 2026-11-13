@@ -182,6 +182,7 @@ TITULAR_SIN_HALLAZGOS = "No podemos confirmar que sea segura."
 # Seguro por puntaje, pero con algún truco en la dirección: el titular no lo niega.
 TITULAR_SEGURO_CON_SENALES = "Ningún servicio la reporta, pero su dirección tiene algo raro."
 TITULAR_IMITA = "Imita a una marca en una web recién creada. No la abras."
+TITULAR_ANALISTA = "Nuestro equipo confirmó que es una estafa. No la abras."
 MARCA_SIN_NOMBRE = "una marca conocida"
 # La modalidad sale de las palabras de la dirección: es una pista, y se dice así.
 PISTA_MODALIDAD = "Por las palabras de su dirección, puede ser la estafa «{titulo}»."
@@ -727,6 +728,8 @@ def _titular(veredicto: Veredicto) -> str:
         return TITULAR_SIN_HALLAZGOS
     if veredicto.nivel == Nivel.SEGURO and veredicto.senales.heuristicas:
         return TITULAR_SEGURO_CON_SENALES
+    if veredicto.senales.confirmado_por_analista and not veredicto.senales.fuentes_con_deteccion:
+        return TITULAR_ANALISTA
     if veredicto.nivel == Nivel.PELIGROSO and veredicto.senales.fuentes_con_deteccion:
         return TITULAR_REPORTADA
     if veredicto.nivel == Nivel.PELIGROSO and "suplantacion_en_web_nueva" in veredicto.reglas:

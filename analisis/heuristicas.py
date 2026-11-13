@@ -306,8 +306,12 @@ def detectar_dominio_parecido(dominio: str, dominios_oficiales: Iterable[str]) -
 def marca_imitada(dominio: str, dominios_oficiales: Iterable[str]) -> str:
     """El dominio oficial que imita `dominio`, con las mismas reglas que sus heurísticas.
 
-    Vacío si no imita a ninguno o si es uno oficial.
+    Vacío si no imita a ninguno o si es uno oficial. Se descarta primero contra toda la
+    lista: `banco.pe` y `banco.com.pe` pueden ser los dos oficiales y parecerse entre sí.
     """
+    dominios_oficiales = [_limpiar(oficial) for oficial in dominios_oficiales]
+    if any(_pertenece(_limpiar(dominio), oficial) for oficial in dominios_oficiales):
+        return ""
     for oficial in dominios_oficiales:
         if detectar_dominio_enganoso(dominio, [oficial]) or detectar_dominio_parecido(
             dominio, [oficial]

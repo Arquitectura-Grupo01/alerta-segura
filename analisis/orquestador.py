@@ -11,6 +11,7 @@ Los tiempos están acotados por cada paso: 10 s el enlace, 5 s la edad y 6 s las
 import threading
 from dataclasses import asdict
 from datetime import datetime, timedelta
+from urllib.parse import unquote
 
 from django.utils import timezone
 
@@ -100,7 +101,7 @@ def _calcular(enlace: EnlaceNormalizado) -> tuple[Veredicto, dict]:
     imitado = marca_imitada(dominio, oficiales) or marca_imitada(enlace.dominio, oficiales)
     vistas = [enlace] + ([final] if final is not None else [])
     modalidad = modalidades.detectar(
-        [f"{vista.dominio} {vista.ruta}" for vista in vistas], dominio, oficiales
+        [f"{vista.dominio} {unquote(vista.ruta)}" for vista in vistas], dominio, oficiales
     )
     dominio_origen = enlace.dominio if dominio != enlace.dominio else ""
 
