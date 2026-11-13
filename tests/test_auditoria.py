@@ -1,5 +1,6 @@
 import pytest
-from django.contrib.auth.models import AnonymousUser
+from django.contrib.auth.models import AnonymousUser, Permission
+from django.contrib.contenttypes.models import ContentType
 from django.db import IntegrityError, transaction
 from django.db.models import ProtectedError
 from django.urls import reverse
@@ -205,3 +206,122 @@ def test_el_admin_no_permite_agregar_editar_ni_borrar(evento, client, django_use
     assert client.get(borrar).status_code == 403
     assert client.post(borrar, {"post": "yes"}).status_code == 403
     assert EventoAuditoria.objects.get(pk=evento.pk).motivo == "Dominio oficial agregado"
+
+
+
+
+# --- Tarea 36: Consulta de auditoría -------------------------------
+
+def test_analista_no_puede_consultar_auditoria(
+    evento, client, analista
+):
+    analista.is_staff = True
+    analista.save()
+
+    client.force_login(analista)
+
+    url = reverse("admin:core_eventoauditoria_changelist")
+    respuesta = client.get(url)
+
+    assert respuesta.status_code == 403
+
+
+def test_analista_con_permiso_view_no_puede_consultar(
+    evento, client, analista
+):
+    analista.is_staff = True
+    analista.save()
+
+    contenido = ContentType.objects.get_for_model(EventoAuditoria)
+    permiso = Permission.objects.get(
+        content_type=contenido,
+        codename="view_eventoauditoria",
+    )
+    analista.user_permissions.add(permiso)
+
+    client.force_login(analista)
+
+    lista = reverse("admin:core_eventoauditoria_changelist")
+    detalle = reverse(
+        "admin:core_eventoauditoria_change",
+        args=[evento.pk],
+    )
+
+    assert client.get(lista).status_code == 403
+    assert client.get(detalle).status_code == 403
+
+
+def test_administrador_puede_filtrar_eventos(
+    evento, client, django_user_model
+):
+    administrador = django_user_model.objects.create_superuser(
+        "admin-auditoria",
+        password="z" * 14,
+    )
+
+    client.force_login(administrador)
+
+    url = reverse("admin:core_eventoauditoria_changelist")
+
+    respuesta = client.get(
+        url,
+        {
+            "tipo__exact": TipoEvento.CAMBIO_CATALOGO,
+            "usuario__id__exact": evento.usuario_id,
+        },
+    )
+
+    assert respuesta.status_code == 200
+    assert evento in respuesta.context["cl"].result_list
+
+
+def test_usuario_anonimo_no_puede_consultar_auditoria(
+    evento, client
+):
+    url = reverse("admin:core_eventoauditoria_changelist")
+
+    respuesta = client.get(url)
+
+    assert respuesta.status_code == 302
+    assert "/admin/login/" in respuesta.url
+
+
+
+
+def test_filtros_excluyen_eventos_que_no_coinciden(
+    evento, client, django_user_model
+):
+    administrador = django_user_model.objects.create_superuser(
+        "admin-filtros",
+        password="z" * 14,
+    )
+
+    otro_usuario = django_user_model.objects.create_user(
+        "otro-usuario",
+        password="x" * 14,
+    )
+
+    otro_evento = registrar_evento(
+        TipoEvento.FALLO_SESION,
+        usuario=otro_usuario,
+        motivo="Intento fallido",
+    )
+
+    client.force_login(administrador)
+
+    url = reverse("admin:core_eventoauditoria_changelist")
+    respuesta = client.get(
+        url,
+        {
+            "tipo__exact": TipoEvento.CAMBIO_CATALOGO,
+            "usuario__id__exact": evento.usuario_id,
+        },
+    )
+
+    assert respuesta.status_code == 200
+
+    resultados = list(respuesta.context["cl"].result_list)
+
+    assert evento in resultados
+    assert otro_evento not in resultados
+    assert len(resultados) == 1
