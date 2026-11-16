@@ -245,3 +245,56 @@ def test_dominios_legitimos_no_son_suplantacion(url):
     )
     assert "dominio_parecido" not in senales
     assert "marca_en_subdominio" not in senales
+
+
+
+
+# Casos adicionales de evasión y limitaciones conocidas.
+
+
+@pytest.mark.parametrize(
+    ("url", "senal_esperada"),
+    [
+        (
+            "https://ejemplo.com/verifica",
+            "palabras_sospechosas",
+        ),
+        (
+            "https://ejemplo.com/v-e-r-i-f-i-c-a",
+            None,
+        ),
+        (
+            "https://ejemplo.com/ver\u200bifica",
+            None,
+        ),
+    ],
+)
+def test_evasion_por_separacion_y_ancho_cero(url, senal_esperada):
+    """Registra qué detecta actualmente el analizador.
+
+    None significa que la señal no se detecta en esta versión;
+    no equivale a considerar seguro el enlace.
+    """
+    senales = detectar_senales(url)
+
+    if senal_esperada is None:
+        assert "palabras_sospechosas" not in senales
+    else:
+        assert senal_esperada in senales
+
+
+def test_acortador_detectado_sin_seguir_redirecciones():
+    """Comprueba la señal local; no simula una redirección real."""
+    senales = detectar_senales("https://bit.ly/ejemplo")
+
+    assert "acortador" in senales
+
+
+def test_cobertura_baja_no_se_clasifica_como_seguro():
+    """Sin evidencia suficiente, el motor debe advertir al usuario."""
+    veredicto = calcular(Senales(heuristicas=()))
+
+    assert veredicto.nivel >= Nivel.TEN_CUIDADO
+    assert "cobertura_baja" in veredicto.reglas
+
+
