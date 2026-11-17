@@ -2,7 +2,7 @@
 
 import hashlib
 import logging
-from datetime import date, timedelta
+from datetime import timedelta
 
 from django.db import DatabaseError, transaction
 from django.db.models import F, Q
@@ -42,7 +42,12 @@ def registrar(
 
 def _registrar(url, dominio, heuristicas, marca, edad_registro) -> None:
     hoy = timezone.now()
-    registrado = (hoy - timedelta(days=edad_registro)).date() if edad_registro is not None else None
+    fecha_local = timezone.localdate(hoy)
+    registrado = (
+        fecha_local - timedelta(days=edad_registro)
+        if edad_registro is not None
+        else None
+    )
     with transaction.atomic():
         for tipo, clave in ((Reputacion.Tipo.DOMINIO, dominio), (Reputacion.Tipo.URL, huella(url))):
             fila, _ = Reputacion.objects.select_for_update().get_or_create(
@@ -109,4 +114,4 @@ def edad_registrada(dominio: str) -> int | None:
     fila = Reputacion.objects.filter(tipo=Reputacion.Tipo.DOMINIO, clave=dominio).first()
     if fila is None or fila.registrado is None:
         return None
-    return max(0, (date.today() - fila.registrado).days)
+    return max(0, (timezone.localdate() - fila.registrado).days)
