@@ -182,7 +182,7 @@ jobs:
     steps:
       - name: Disparar deploy en Render
         env:
-          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_DEV }}
         run: curl -fsS -X POST "$HOOK" > /dev/null && echo "Deploy a Dev disparado"
 
   smoke-dev:
@@ -231,7 +231,7 @@ jobs:
     steps:
       - name: Disparar deploy en Render
         env:
-          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_PROD }}
         run: curl -fsS -X POST "$HOOK" > /dev/null && echo "Deploy a Prod disparado"
 
   smoke-prod:
