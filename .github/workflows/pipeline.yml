@@ -69,6 +69,30 @@ jobs:
           export DJANGO_SECRET_KEY="$(python -c 'from django.core.management.utils import get_random_secret_key as g; print(g())')"
           python manage.py check --deploy --fail-level WARNING
 
+  accesibilidad:
+    name: Accesibilidad (WCAG 2.1 AA con axe-core)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DJANGO_SECRET_KEY: ci-only-test-key-not-a-secret
+      # No necesita PostgreSQL: solo renderiza páginas de prueba con datos ficticios.
+      DATABASE_URL: sqlite:///accesibilidad.db
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - name: Instalar dependencias
+        run: pip install -r requirements-dev.txt
+      - name: Renderizar las páginas del sitio con Django
+        run: ALERTA_VOLCAR_HTML="$RUNNER_TEMP/paginas" pytest tests/test_accesibilidad.py -k volcar
+      - name: Revisar con axe-core y probar las preferencias de lectura
+        working-directory: scripts/accesibilidad
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          node revisar.mjs "$RUNNER_TEMP/paginas" ../../static/js/accesibilidad.js
+
   sast:
     name: SAST (Bandit + Semgrep)
     runs-on: ubuntu-latest
@@ -149,7 +173,7 @@ jobs:
   # ─────────────────────────── CD ───────────────────────────
   deploy-dev:
     name: Deploy a Dev
-    needs: [calidad, sast, dependencias, secretos, imagen]
+    needs: [calidad, accesibilidad, sast, dependencias, secretos, imagen]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
