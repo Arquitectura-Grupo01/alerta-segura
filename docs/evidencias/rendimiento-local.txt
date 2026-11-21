@@ -1,0 +1,36 @@
+============================= test session starts =============================
+platform win32 -- Python 3.13.15, pytest-9.2.0, pluggy-1.7.0 -- D:\Alerta segura - APP\alerta-segura\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+django: version: 5.2.18, settings: config.settings.test (from ini)
+rootdir: D:\Alerta segura - APP\alerta-segura
+configfile: pyproject.toml
+plugins: anyio-4.15.1, platformdirs-4.14.4, cov-7.1.0, django-4.14.0
+collecting ... collected 1 item
+
+python : Creating test database for alias 'default'...
+En línea: 2 Carácter: 1
++ python -m pytest tests/test_rendimiento.py -v -s 2>&1 | Tee-Object -F ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Creating test d...as 'default'...:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+tests/test_rendimiento.py::test_rendimiento_analisis_y_cache 
+=== TAREA 56: RENDIMIENTO LOCAL ===
+Primeros analisis: 50
+Consultas desde cache: 200
+P95 inicial: 0.0354 s
+Mediana inicial: 0.0266 s
+P95 cache: 0.0051 s
+Mediana cache: 0.0031 s
+Mejora de mediana: 8.50x
+Consultas simuladas totales: 50
+Consultas externas adicionales en cache: 0
+Meta P95 inicial <= 8 s: True
+Meta P95 cache <= 1 s: True
+Meta mejora >= 5x: True
+Destroying test database for alias 'default'...
+
+PASSED
+
+============================== 1 passed in 5.64s ==============================

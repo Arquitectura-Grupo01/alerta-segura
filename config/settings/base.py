@@ -50,6 +50,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "core.middleware.TiempoServidorMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "core.middleware.CabecerasSeguridadMiddleware",
     "core.middleware.LimiteDeTamanoMiddleware",
