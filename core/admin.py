@@ -8,16 +8,21 @@ from .roles import es_administrador
 
 @admin.register(EventoAuditoria)
 class EventoAuditoriaAdmin(admin.ModelAdmin):
-    """Solo lectura: la auditoría no se agrega, edita ni borra desde el admin.
+    """Consulta de la auditoría, filtrable por fecha, tipo y usuario.
 
-    Solo la ve un administrador. Un permiso de ver agregado a mano a otra cuenta no
-    alcanza.
+    Es de solo lectura para todos, también para el administrador: nadie agrega, edita
+    ni borra eventos desde la consola. Solo la ve un administrador; un permiso de ver
+    agregado a mano a otra cuenta no alcanza.
     """
 
     list_display = ("fecha", "tipo", "usuario", "objeto", "motivo")
-    list_filter = ("tipo",)
+    # El filtro de usuario lista solo las cuentas que tienen eventos, no todas.
+    list_filter = ("fecha", "tipo", ("usuario", admin.RelatedOnlyFieldListFilter))
     date_hierarchy = "fecha"
+    list_select_related = ("usuario",)
     readonly_fields = ("fecha", "tipo", "usuario", "objeto", "motivo", "detalle")
+    # Sin acciones en bloque: la única que trae Django es borrar.
+    actions = None
 
     def has_module_permission(self, request):
         return es_administrador(request.user)
