@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
 from django_otp.oath import totp
 
@@ -17,15 +18,21 @@ from catalogo.servicios import (
 )
 from catalogo.totp import confirmar_registro_totp, iniciar_registro_totp
 from core.models import EventoAuditoria, TipoEvento
+from core.roles import ADMINISTRADOR
+
+
+def administrador_del_catalogo(**datos):
+    """Cuenta interna con el rol de administrador, el único que cambia el catálogo."""
+    cuenta = get_user_model().objects.create_user(is_staff=True, **datos)
+    cuenta.groups.add(Group.objects.get_or_create(name=ADMINISTRADOR)[0])
+    return cuenta
 
 
 @pytest.fixture
 def administrador(db):
-    usuario_modelo = get_user_model()
-    return usuario_modelo.objects.create_user(
+    return administrador_del_catalogo(
         username="admin_catalogo",
         password="ClavePruebaSegura123!",
-        is_staff=True,
     )
 
 
@@ -320,12 +327,10 @@ def test_error_auditoria_revierte_solicitud(marca, administrador):
 
 @pytest.mark.django_db(transaction=True)
 def test_segundo_administrador_aprueba_con_totp(marca, administrador):
-    from django.contrib.auth import get_user_model
 
-    segundo_admin = get_user_model().objects.create_user(
+    segundo_admin = administrador_del_catalogo(
         username="segundo_admin",
         password="ClaveDePrueba123!",
-        is_staff=True,
     )
 
     solicitud = solicitar_dominio_oficial(
@@ -405,12 +410,10 @@ def test_administrador_no_aprueba_su_solicitud(marca, administrador):
 
 @pytest.mark.django_db(transaction=True)
 def test_codigo_totp_utilizado_no_puede_aprobar(marca, administrador):
-    from django.contrib.auth import get_user_model
 
-    segundo_admin = get_user_model().objects.create_user(
+    segundo_admin = administrador_del_catalogo(
         username="admin_reutilizacion",
         password="ClaveDePrueba123!",
-        is_staff=True,
     )
 
     solicitud = solicitar_dominio_oficial(
@@ -457,12 +460,10 @@ def test_codigo_totp_utilizado_no_puede_aprobar(marca, administrador):
 
 @pytest.mark.django_db(transaction=True)
 def test_error_auditoria_revierte_aprobacion(marca, administrador, monkeypatch):
-    from django.contrib.auth import get_user_model
 
-    segundo_admin = get_user_model().objects.create_user(
+    segundo_admin = administrador_del_catalogo(
         username="admin_rollback",
         password="ClaveDePrueba123!",
-        is_staff=True,
     )
 
     solicitud = solicitar_dominio_oficial(
@@ -533,23 +534,18 @@ def test_error_auditoria_revierte_aprobacion(marca, administrador, monkeypatch):
 
 @pytest.mark.django_db(transaction=True)
 def test_codigo_incorrecto_conserva_intento_fallido():
-    from django.contrib.auth import get_user_model
     from django_otp.plugins.otp_totp.models import TOTPDevice
 
     from catalogo.models import DominioOficial, Marca
 
-    User = get_user_model()
-
-    solicitante = User.objects.create_user(
+    solicitante = administrador_del_catalogo(
         username="solicitante_throttle",
         password="ClaveDePrueba123!",
-        is_staff=True,
     )
 
-    aprobador = User.objects.create_user(
+    aprobador = administrador_del_catalogo(
         username="aprobador_throttle",
         password="ClaveDePrueba123!",
-        is_staff=True,
     )
 
     marca = Marca.objects.create(
@@ -602,12 +598,10 @@ def test_codigo_incorrecto_conserva_intento_fallido():
 
 @pytest.mark.django_db(transaction=True)
 def test_aprobacion_guarda_historial(marca, administrador):
-    from django.contrib.auth import get_user_model
 
-    segundo_admin = get_user_model().objects.create_user(
+    segundo_admin = administrador_del_catalogo(
         username="admin_historial",
         password="ClaveDePrueba123!",
-        is_staff=True,
     )
 
     solicitud = solicitar_dominio_oficial(
@@ -746,14 +740,12 @@ def test_no_permite_dos_reemplazos_pendientes(marca, administrador):
 def test_aprobar_reemplazo_retira_dominio_anterior(
     marca, administrador
 ):
-    from django.contrib.auth import get_user_model
     from django_otp.oath import totp
     from django_otp.plugins.otp_totp.models import TOTPDevice
 
-    segundo_admin = get_user_model().objects.create_user(
+    segundo_admin = administrador_del_catalogo(
         username="admin_reemplazo",
         password="ClaveDePrueba123!",
-        is_staff=True,
     )
 
     anterior = DominioOficial.objects.create(
@@ -818,14 +810,12 @@ def test_aprobar_reemplazo_retira_dominio_anterior(
 def test_error_auditoria_revierte_reemplazo(
     marca, administrador, monkeypatch
 ):
-    from django.contrib.auth import get_user_model
     from django_otp.oath import totp
     from django_otp.plugins.otp_totp.models import TOTPDevice
 
-    segundo_admin = get_user_model().objects.create_user(
+    segundo_admin = administrador_del_catalogo(
         username="admin_rollback_reemplazo",
         password="ClaveDePrueba123!",
-        is_staff=True,
     )
 
     anterior = DominioOficial.objects.create(
@@ -888,14 +878,12 @@ def test_error_auditoria_revierte_reemplazo(
 
 @pytest.mark.django_db(transaction=True)
 def test_aprobacion_dominio_rechaza_transaccion_externa(marca, administrador):
-    from django.contrib.auth import get_user_model
     from django.db import transaction
     from django_otp.plugins.otp_totp.models import TOTPDevice
 
-    segundo_admin = get_user_model().objects.create_user(
+    segundo_admin = administrador_del_catalogo(
         username="admin_transaccion_externa",
         password="ClaveDePrueba123!",
-        is_staff=True,
     )
 
     solicitud = solicitar_dominio_oficial(
