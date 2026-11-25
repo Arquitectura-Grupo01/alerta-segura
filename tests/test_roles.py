@@ -123,9 +123,14 @@ def test_un_analista_abre_la_curacion(cuentas, ingresar_consola):
     analista, _ = cuentas
     client = ingresar_consola(analista)
     assert client.get(reverse("admin:curacion_reportedesacuerdo_changelist")).status_code == 200
-    apps = {app["app_label"] for app in client.get(reverse("admin:index")).context["app_list"]}
+    app_list = client.get(reverse("admin:index")).context["app_list"]
+    apps = {app["app_label"] for app in app_list}
+    modelos = {(app["app_label"], m["object_name"]) for app in app_list for m in app["models"]}
     assert "curacion" in apps
-    assert not apps & {*APPS_DEL_ADMINISTRADOR, "core"}
+    assert not apps & set(APPS_DEL_ADMINISTRADOR)
+    # De core ve la invalidación (tarea 38), nunca la auditoría.
+    assert ("core", "InvalidacionDominio") in modelos
+    assert ("core", "EventoAuditoria") not in modelos
 
 
 def test_un_administrador_abre_cuentas_y_auditoria(cuentas, ingresar_consola):

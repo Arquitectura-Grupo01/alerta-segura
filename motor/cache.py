@@ -9,7 +9,7 @@ from django.db.models import F
 
 from core.models import InvalidacionDominio
 from core.resultados import CACHE, clave_de_resultado, contadores_de
-from motor.riesgo import Nivel, Veredicto
+from motor.riesgo import VERSION_INICIAL, Nivel, Veredicto
 
 HORA = 60 * 60
 VIGENCIA_SEGUNDOS = {
@@ -55,8 +55,21 @@ def descartar_resultado(url: str, version: str) -> None:
     caches[CACHE].delete(clave_de_resultado(url, version))
 
 
+def invalidar_url(url: str) -> None:
+    """Borra el resultado guardado de una URL normalizada con la versión de reglas vigente.
+
+    La siguiente consulta de esa URL se analiza de nuevo. Las demás URLs de la web siguen
+    en la caché; para dejarlas a todas sin efecto está `invalidar_dominio`.
+    """
+    caches[CACHE].delete(clave_de_resultado(url, VERSION_INICIAL.numero))
+
+
 def invalidar_dominio(dominio: str) -> None:
-    """Deja sin efecto todos los resultados guardados de un dominio."""
+    """Deja sin efecto todos los resultados guardados de un dominio.
+
+    La usan la invalidación manual de la curación y las decisiones de la cola de curación
+    (`motor.reputacion.marcar_confirmado`).
+    """
     _, creado = InvalidacionDominio.objects.get_or_create(dominio=dominio, defaults={"contador": 1})
     if not creado:
         InvalidacionDominio.objects.filter(dominio=dominio).update(contador=F("contador") + 1)

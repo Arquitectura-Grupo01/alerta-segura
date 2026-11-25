@@ -13,6 +13,7 @@ from analisis.orquestador import (
 )
 from catalogo.models import CanalOficial
 from core.entrada import ANALISIS, limitar
+from core.sondeo import anotar_consulta
 from motor.explicacion import (
     NOTA_FUENTES,
     OCUPADO,
@@ -43,6 +44,8 @@ def analizar(request):
     except URLInvalida as error:
         # Los mensajes de URLInvalida están escritos para la persona y no traen datos internos.
         return _volver_al_inicio(request, str(error), texto, estado=400)
+    # Muchas direcciones de una misma web desde un mismo origen: la cola lo muestra.
+    anotar_consulta(request, enlace.dominio, enlace.url)
     try:
         analisis = analizar_enlace(enlace)
     except Ocupado:

@@ -1,0 +1,51 @@
+{% extends "admin/base_site.html" %}
+{% comment %}
+Cola de curación (curacion/admin.py). Un caso por web, de mayor a menor prioridad: más
+reportes y pedidos parecidos, después nivel más alto, después más antiguo. Todo lo que
+viene de un ciudadano se muestra con el autoescapado de Django.
+{% endcomment %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+<a href="{% url 'admin:index' %}">Inicio</a>
+&rsaquo; Cola de curación
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+{% if casos %}
+<table>
+  <caption>Casos pendientes, del más urgente al menos urgente</caption>
+  <thead>
+    <tr>
+      <th scope="col">Web</th>
+      <th scope="col">Pendientes</th>
+      <th scope="col">«Sí era estafa»</th>
+      <th scope="col">«Era legítimo»</th>
+      <th scope="col">Pedidos del dueño</th>
+      <th scope="col">Nivel más alto</th>
+      <th scope="col">Desde</th>
+      <th scope="col">Alertas</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for caso in casos %}
+    <tr>
+      <td><a href="{% url 'admin:curacion_caso' caso.dominio %}">{{ caso.dominio }}</a></td>
+      <td>{{ caso.total }}</td>
+      <td>{{ caso.era_estafa }}</td>
+      <td>{{ caso.era_legitimo }}</td>
+      <td>{{ caso.pedidos }}</td>
+      <td>{{ caso.nivel_texto|default:"Sin análisis" }}</td>
+      <td>{{ caso.desde|date:"Y-m-d H:i" }}</td>
+      <td>{% if caso.sondeo %}Posible sondeo{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No hay casos pendientes.</p>
+{% endif %}
+</div>
+{% endblock %}

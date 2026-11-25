@@ -1,0 +1,73 @@
+{% extends "admin/base_site.html" %}
+{% comment %}
+Un caso de la cola de curación: los pendientes de una web y el formulario de decisión.
+Los mensajes de los dueños ya se guardaron enmascarados y se muestran escapados.
+{% endcomment %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+<a href="{% url 'admin:index' %}">Inicio</a>
+&rsaquo; <a href="{% url 'admin:curacion_reportedesacuerdo_changelist' %}">Cola de curación</a>
+&rsaquo; {{ dominio }}
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+
+{% if sondeo %}
+<p class="errornote">Posible sondeo: un mismo origen consultó muchas direcciones de esta web en una hora.</p>
+{% endif %}
+
+<h2>Reputación propia</h2>
+{% if reputacion %}
+<ul>
+  <li>Análisis: {{ reputacion.analisis }}</li>
+  <li>Confirmada por un analista: {{ reputacion.confirmado_por_analista|yesno:"sí,no" }}</li>
+  <li>Reportes «sí era estafa»: {{ reputacion.reportes_estafa }}</li>
+  <li>Reportes «era legítimo»: {{ reputacion.reportes_legitimo }}</li>
+</ul>
+{% else %}
+<p>Sin datos propios de esta web.</p>
+{% endif %}
+
+<h2>Reportes pendientes</h2>
+{% if reportes %}
+<table>
+  <thead><tr><th scope="col">Fecha</th><th scope="col">Reporte</th><th scope="col">Veredicto del análisis</th><th scope="col">Dirección</th></tr></thead>
+  <tbody>
+  {% for reporte in reportes %}
+    <tr>
+      <td>{{ reporte.fecha|date:"Y-m-d H:i" }}</td>
+      <td>{{ reporte.get_tipo_display }}</td>
+      <td>{{ reporte.analisis.get_nivel_display }}</td>
+      <td>{{ reporte.analisis.url|default:"No guardada" }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>Ninguno.</p>
+{% endif %}
+
+<h2>Pedidos de revisión pendientes</h2>
+{% for solicitud in solicitudes %}
+<div class="module">
+  <p>{{ solicitud.fecha|date:"Y-m-d H:i" }}</p>
+  <p>{{ solicitud.mensaje|linebreaksbr }}</p>
+</div>
+{% empty %}
+<p>Ninguno.</p>
+{% endfor %}
+
+{% if puede_decidir and reportes or puede_decidir and solicitudes %}
+<h2>Decisión</h2>
+{{ formulario.non_field_errors }}
+<form method="post">{% csrf_token %}
+  {% for campo in formulario %}<div class="form-row">{{ campo.errors }}{{ campo.label_tag }} {{ campo }}{% if campo.help_text %}<div class="help">{{ campo.help_text }}</div>{% endif %}</div>{% endfor %}
+  <div class="submit-row"><input type="submit" value="Guardar decisión"></div>
+</form>
+{% endif %}
+
+</div>
+{% endblock %}
