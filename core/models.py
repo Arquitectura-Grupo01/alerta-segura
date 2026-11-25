@@ -19,6 +19,7 @@ class TipoEvento(models.TextChoices):
     FALLO_FUENTE = "fallo_fuente", "Fallo de una fuente externa"
     DESTINO_BLOQUEADO = "destino_bloqueado", "Destino bloqueado por anti-SSRF"
     ALERTA_SEGURIDAD = "alerta_seguridad", "Alerta de seguridad"
+    PURGA_DATOS = "purga_datos", "Purga de datos vencidos"
 
 
 class EventoQuerySet(models.QuerySet):
@@ -38,6 +39,20 @@ class EventoQuerySet(models.QuerySet):
 
     def delete(self):
         raise EventoInmutable("Los eventos de auditoría no se borran.")
+
+    def purgar_lote(self, antes_de, lote) -> int:
+        """Borra hasta `lote` eventos anteriores a `antes_de` y devuelve cuántos borró.
+
+        Es la única vía para borrar eventos, y la usa solo la purga por vencimiento de
+        core/retencion.py, que deja su propio evento. Ninguna vista la llama.
+        """
+        vencidos = self.filter(fecha__lt=antes_de).order_by("fecha", "id")
+        ids = list(vencidos.values_list("pk", flat=True)[:lote])
+        if not ids:
+            return 0
+        # Borrado directo en SQL, sin pasar por delete(), que está cerrado a propósito.
+        vencidos = models.QuerySet(model=self.model, using=self.db).filter(pk__in=ids)
+        return vencidos._raw_delete(using=self.db)
 
 
 class EventoAuditoria(models.Model):
