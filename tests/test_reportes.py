@@ -204,7 +204,9 @@ def test_borrar_el_analisis_borra_sus_reportes(client, peligroso):
 
 # --- Admin e imports -----------------------------------------------------------
 
-def test_el_admin_muestra_los_reportes_solo_para_leer(client, django_user_model, peligroso):
+def test_el_admin_muestra_los_reportes_solo_para_leer(
+    client, django_user_model, peligroso, ingresar_consola,
+):
     reportar(client, peligroso, "era_legitimo")
     modelo_admin = admin.site._registry[ReporteDesacuerdo]
     assert isinstance(modelo_admin, ReporteDesacuerdoAdmin)
@@ -213,7 +215,7 @@ def test_el_admin_muestra_los_reportes_solo_para_leer(client, django_user_model,
     assert not modelo_admin.has_change_permission(solicitud)
     assert not modelo_admin.has_delete_permission(solicitud)
 
-    client.force_login(django_user_model.objects.create_superuser("revisora", password="x"))
+    ingresar_consola(django_user_model.objects.create_superuser("revisora", password="x"))
     lista = client.get(reverse("admin:curacion_reportedesacuerdo_changelist"))
     assert lista.status_code == 200
     assert "ejemplo.pe" in lista.content.decode()

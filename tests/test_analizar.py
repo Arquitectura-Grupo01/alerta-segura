@@ -98,9 +98,11 @@ def test_el_resultado_no_se_indexa(client):
 
 def test_el_resultado_no_usa_scripts_ni_estilos_en_linea(client):
     html = _analizar(client, ENLACE_PELIGRO_ALTO).content.decode()
-    # El único script es un archivo propio; ninguno va escrito en la página.
+    # Los únicos scripts son archivos propios (preferencias de lectura y botón de avisar);
+    # ninguno va escrito en la página.
     assert re.findall(r"<script[^>]*>", html, flags=re.IGNORECASE) == [
-        '<script src="/static/js/resultado.js" defer>'
+        '<script src="/static/js/accesibilidad.js">',
+        '<script src="/static/js/resultado.js" defer>',
     ]
     assert not re.search(r"<style", html, flags=re.IGNORECASE)
     assert not re.search(r"\sstyle=", html, flags=re.IGNORECASE)

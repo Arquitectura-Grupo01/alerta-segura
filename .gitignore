@@ -24,3 +24,6 @@ media/
 # Reportes de escaneo
 zap/
 *.sarif
+
+# Node (solo scripts/accesibilidad, para el CI)
+node_modules/
