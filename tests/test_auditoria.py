@@ -45,7 +45,7 @@ def test_los_tipos_son_los_del_plan():
     assert set(TipoEvento.values) == {
         "inicio_sesion", "fallo_sesion", "bloqueo_cuenta", "cambio_cuenta", "cambio_catalogo",
         "cambio_reglas", "decision_curacion", "invalidacion", "fallo_fuente",
-        "destino_bloqueado", "alerta_seguridad",
+        "destino_bloqueado", "alerta_seguridad", "purga_datos",
     }
 
 
