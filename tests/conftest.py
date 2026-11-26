@@ -28,3 +28,24 @@ def analisis_sin_red(monkeypatch):
     monkeypatch.setattr(destino, "pedir_url", sin_red)
     monkeypatch.setattr(edad, "pedir_url", sin_red)
     monkeypatch.setattr(edad, "_registro", edad._RegistroIana())
+
+
+@pytest.fixture
+def ingresar_consola(client):
+    """Inicia sesión en la consola con el segundo factor ya verificado.
+
+    force_login solo autentica; la consola exige además un dispositivo TOTP verificado
+    en la sesión, como queda tras pasar por el formulario de ingreso.
+    """
+    from django_otp import DEVICE_ID_SESSION_KEY
+    from django_otp.plugins.otp_totp.models import TOTPDevice
+
+    def ingresar(cuenta):
+        dispositivo = TOTPDevice.objects.create(user=cuenta, name="Pruebas", confirmed=True)
+        client.force_login(cuenta)
+        sesion = client.session
+        sesion[DEVICE_ID_SESSION_KEY] = dispositivo.persistent_id
+        sesion.save()
+        return client
+
+    return ingresar

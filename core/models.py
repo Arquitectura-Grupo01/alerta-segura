@@ -11,6 +11,7 @@ class TipoEvento(models.TextChoices):
     INICIO_SESION = "inicio_sesion", "Inicio de sesión"
     FALLO_SESION = "fallo_sesion", "Fallo de inicio de sesión"
     BLOQUEO_CUENTA = "bloqueo_cuenta", "Bloqueo de cuenta"
+    CAMBIO_CUENTA = "cambio_cuenta", "Cambio de cuenta interna"
     CAMBIO_CATALOGO = "cambio_catalogo", "Cambio de catálogo"
     CAMBIO_REGLAS = "cambio_reglas", "Cambio de reglas"
     DECISION_CURACION = "decision_curacion", "Decisión de curación"

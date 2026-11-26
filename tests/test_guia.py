@@ -84,7 +84,11 @@ def test_no_hay_telefonos_que_no_se_pudieron_verificar(html):
 
 def test_la_guia_no_usa_jerga_ni_scripts_ni_estilos_en_linea(html):
     assert terminos_prohibidos(_visible(html)) == []
-    assert not re.search(r"<script|<style|\sstyle=|\son[a-z]+=", html, flags=re.IGNORECASE)
+    # Solo se permite el script propio de las preferencias de lectura, cargado desde un archivo.
+    assert re.findall(r"<script[^>]*>", html, flags=re.IGNORECASE) == [
+        '<script src="/static/js/accesibilidad.js">'
+    ]
+    assert not re.search(r"<style|\sstyle=|\son[a-z]+=", html, flags=re.IGNORECASE)
 
 
 def test_cada_anclaje_interno_de_la_guia_existe(html):

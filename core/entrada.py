@@ -25,6 +25,9 @@ class Politica(NamedTuple):
 # Controles de seguridad: valen igual en todos los ambientes y no se leen del entorno.
 ANALISIS = Politica("analisis", 30, 10 * 60)
 REPORTES = Politica("reportes", 10, 60 * 60)
+# Envíos del formulario de ingreso a la consola. Complementa el bloqueo por cuenta de
+# core/bloqueo.py: frena a quien prueba muchas cuentas desde la misma IP.
+INGRESO = Politica("ingreso", 20, 15 * 60)
 # Tope global de consultas a fuentes externas por hora, sin importar quién las pida: bots
 # repartidos en muchas IP no deben agotar las cuotas gratuitas de los proveedores.
 # Cada análisis nuevo consulta hasta 6 fuentes: alcanza para unos 100 análisis nuevos por

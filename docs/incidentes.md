@@ -30,7 +30,7 @@ Cambiar una variable en Render redespliega el mismo commit. No despliega código
 |---|---|---|
 | `DJANGO_SECRET_KEY` | Se reemplaza por una clave nueva | Variables del servicio en Render, por ambiente |
 | Contraseña del rol de la app, dentro de `DATABASE_URL` | Neon, en Roles, con un reset de la contraseña | `DATABASE_URL` en Render |
-| `RENDER_DEPLOY_HOOK` | Render, en Settings del servicio, con «Regenerate Hook» | Secret del environment de GitHub (`development` o `production`) |
+| `RENDER_DEPLOY_HOOK_DEV` y `RENDER_DEPLOY_HOOK_PROD` | Render, en Settings del servicio de Dev o de Prod, con «Regenerate Hook» | Secret del environment de GitHub: `_DEV` en `development` y `_PROD` en `production` |
 | Claves de las fuentes externas | Panel de cada proveedor | Variables del servicio en Render |
 
 1. Revocar primero, en el proveedor. Borrar el commit no alcanza, porque el repo es público y el secreto ya pudo copiarse.

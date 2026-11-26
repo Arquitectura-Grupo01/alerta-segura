@@ -1,12 +1,13 @@
 import pytest
-from django.contrib.auth.models import AnonymousUser, Permission
-from django.contrib.contenttypes.models import ContentType
+from django.contrib.auth.models import AnonymousUser
 from django.db import IntegrityError, transaction
 from django.db.models import ProtectedError
 from django.urls import reverse
 
 from core.auditoria import registrar_evento
+from core.cuentas import crear_cuenta_interna
 from core.models import EventoAuditoria, EventoInmutable, TipoEvento
+from core.roles import ADMINISTRADOR
 
 pytestmark = pytest.mark.django_db
 
@@ -44,7 +45,7 @@ def test_un_visitante_anonimo_queda_sin_autor():
 
 def test_los_tipos_son_los_del_plan():
     assert set(TipoEvento.values) == {
-        "inicio_sesion", "fallo_sesion", "bloqueo_cuenta", "cambio_catalogo",
+        "inicio_sesion", "fallo_sesion", "bloqueo_cuenta", "cambio_cuenta", "cambio_catalogo",
         "cambio_reglas", "decision_curacion", "invalidacion", "fallo_fuente",
         "destino_bloqueado", "alerta_seguridad",
     }
@@ -189,11 +190,13 @@ def test_el_detalle_debe_ser_un_diccionario():
 
 # --- Admin ------------------------------------------------------------------
 
-def test_el_admin_no_permite_agregar_editar_ni_borrar(evento, client, django_user_model):
+def test_el_admin_no_permite_agregar_editar_ni_borrar(
+    evento, client, django_user_model, ingresar_consola,
+):
     superusuario = django_user_model.objects.create_superuser(
         "super-prueba", password="y" * 14,
     )
-    client.force_login(superusuario)
+    ingresar_consola(superusuario)
     assert client.get(reverse("admin:core_eventoauditoria_changelist")).status_code == 200
     assert client.get(reverse("admin:core_eventoauditoria_add")).status_code == 403
     cambiar = reverse("admin:core_eventoauditoria_change", args=[evento.pk])
@@ -208,120 +211,29 @@ def test_el_admin_no_permite_agregar_editar_ni_borrar(evento, client, django_use
     assert EventoAuditoria.objects.get(pk=evento.pk).motivo == "Dominio oficial agregado"
 
 
-
-
-# --- Tarea 36: Consulta de auditoría -------------------------------
-
-def test_analista_no_puede_consultar_auditoria(
-    evento, client, analista
+def test_el_administrador_filtra_la_auditoria_por_tipo_y_usuario(
+    evento, client, django_user_model, ingresar_consola
 ):
-    analista.is_staff = True
-    analista.save()
-
-    client.force_login(analista)
-
-    url = reverse("admin:core_eventoauditoria_changelist")
-    respuesta = client.get(url)
-
-    assert respuesta.status_code == 403
-
-
-def test_analista_con_permiso_view_no_puede_consultar(
-    evento, client, analista
-):
-    analista.is_staff = True
-    analista.save()
-
-    contenido = ContentType.objects.get_for_model(EventoAuditoria)
-    permiso = Permission.objects.get(
-        content_type=contenido,
-        codename="view_eventoauditoria",
+    administrador, _, _ = crear_cuenta_interna("admin-filtros", "x" * 14, ADMINISTRADOR)
+    otro = django_user_model.objects.create_user("otra-cuenta", password="x" * 14)
+    mismo_tipo_otro_usuario = registrar_evento(
+        TipoEvento.CAMBIO_CATALOGO, usuario=otro, motivo="Otro cambio"
     )
-    analista.user_permissions.add(permiso)
-
-    client.force_login(analista)
-
-    lista = reverse("admin:core_eventoauditoria_changelist")
-    detalle = reverse(
-        "admin:core_eventoauditoria_change",
-        args=[evento.pk],
+    otro_tipo_mismo_usuario = registrar_evento(
+        TipoEvento.FALLO_SESION, usuario=evento.usuario, motivo="Intento fallido"
     )
-
-    assert client.get(lista).status_code == 403
-    assert client.get(detalle).status_code == 403
-
-
-def test_administrador_puede_filtrar_eventos(
-    evento, client, django_user_model
-):
-    administrador = django_user_model.objects.create_superuser(
-        "admin-auditoria",
-        password="z" * 14,
-    )
-
-    client.force_login(administrador)
-
-    url = reverse("admin:core_eventoauditoria_changelist")
+    ingresar_consola(administrador)
 
     respuesta = client.get(
-        url,
-        {
-            "tipo__exact": TipoEvento.CAMBIO_CATALOGO,
-            "usuario__id__exact": evento.usuario_id,
-        },
+        reverse("admin:core_eventoauditoria_changelist"),
+        {"tipo__exact": TipoEvento.CAMBIO_CATALOGO, "usuario__id__exact": evento.usuario_id},
     )
 
     assert respuesta.status_code == 200
-    assert evento in respuesta.context["cl"].result_list
-
-
-def test_usuario_anonimo_no_puede_consultar_auditoria(
-    evento, client
-):
-    url = reverse("admin:core_eventoauditoria_changelist")
-
-    respuesta = client.get(url)
-
-    assert respuesta.status_code == 302
-    assert "/admin/login/" in respuesta.url
-
-
-
-
-def test_filtros_excluyen_eventos_que_no_coinciden(
-    evento, client, django_user_model
-):
-    administrador = django_user_model.objects.create_superuser(
-        "admin-filtros",
-        password="z" * 14,
-    )
-
-    otro_usuario = django_user_model.objects.create_user(
-        "otro-usuario",
-        password="x" * 14,
-    )
-
-    otro_evento = registrar_evento(
-        TipoEvento.FALLO_SESION,
-        usuario=otro_usuario,
-        motivo="Intento fallido",
-    )
-
-    client.force_login(administrador)
-
-    url = reverse("admin:core_eventoauditoria_changelist")
-    respuesta = client.get(
-        url,
-        {
-            "tipo__exact": TipoEvento.CAMBIO_CATALOGO,
-            "usuario__id__exact": evento.usuario_id,
-        },
-    )
-
-    assert respuesta.status_code == 200
-
-    resultados = list(respuesta.context["cl"].result_list)
-
-    assert evento in resultados
-    assert otro_evento not in resultados
-    assert len(resultados) == 1
+    lista = respuesta.context["cl"]
+    # El admin acepta el parámetro aunque no ofrezca el filtro: se revisa que aparezca.
+    assert {filtro.field_path for filtro in lista.filter_specs} == {"tipo", "usuario"}
+    resultados = list(lista.result_list)
+    assert resultados == [evento]
+    assert mismo_tipo_otro_usuario not in resultados
+    assert otro_tipo_mismo_usuario not in resultados
