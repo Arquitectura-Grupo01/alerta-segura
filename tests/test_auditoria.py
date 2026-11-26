@@ -43,7 +43,7 @@ def test_un_visitante_anonimo_queda_sin_autor():
 
 def test_los_tipos_son_los_del_plan():
     assert set(TipoEvento.values) == {
-        "inicio_sesion", "fallo_sesion", "bloqueo_cuenta", "cambio_catalogo",
+        "inicio_sesion", "fallo_sesion", "bloqueo_cuenta", "cambio_cuenta", "cambio_catalogo",
         "cambio_reglas", "decision_curacion", "invalidacion", "fallo_fuente",
         "destino_bloqueado", "alerta_seguridad",
     }
@@ -188,11 +188,13 @@ def test_el_detalle_debe_ser_un_diccionario():
 
 # --- Admin ------------------------------------------------------------------
 
-def test_el_admin_no_permite_agregar_editar_ni_borrar(evento, client, django_user_model):
+def test_el_admin_no_permite_agregar_editar_ni_borrar(
+    evento, client, django_user_model, ingresar_consola,
+):
     superusuario = django_user_model.objects.create_superuser(
         "super-prueba", password="y" * 14,
     )
-    client.force_login(superusuario)
+    ingresar_consola(superusuario)
     assert client.get(reverse("admin:core_eventoauditoria_changelist")).status_code == 200
     assert client.get(reverse("admin:core_eventoauditoria_add")).status_code == 403
     cambiar = reverse("admin:core_eventoauditoria_change", args=[evento.pk])

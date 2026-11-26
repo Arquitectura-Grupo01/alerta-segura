@@ -34,7 +34,8 @@ ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=[])
 APP_ENV = env("APP_ENV", default="local")
 
 INSTALLED_APPS = [
-    "django.contrib.admin",
+    # El admin de Django con el segundo factor obligatorio (core/consola.py).
+    "core.apps.ConsolaAdminConfig",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
@@ -47,6 +48,8 @@ INSTALLED_APPS = [
     "motor",
     "django_otp",
     "django_otp.plugins.otp_totp",
+    # Códigos de recuperación de un solo uso de la consola.
+    "django_otp.plugins.otp_static",
 ]
 
 MIDDLEWARE = [
@@ -115,6 +118,16 @@ STORAGES = {
 }
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Sesión de la consola interna. Controles fijos, no configuración: la sesión vence a
+# los 30 minutos sin actividad, porque cada solicitud la renueva. El ciudadano no recibe
+# cookie de sesión: Django no guarda una sesión vacía. prod.py agrega Secure.
+SESSION_COOKIE_AGE = 30 * 60
+SESSION_SAVE_EVERY_REQUEST = True
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Lax"
+# Nombre que muestra la app del autenticador junto a la cuenta.
+OTP_TOTP_ISSUER = "Alerta Segura"
 
 # Ruta del admin configurable: /admin/ recibe escaneo automatizado constante.
 ADMIN_PATH = env("DJANGO_ADMIN_PATH", default="admin/")

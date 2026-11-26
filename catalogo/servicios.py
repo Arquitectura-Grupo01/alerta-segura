@@ -7,6 +7,7 @@ from django_otp.plugins.otp_totp.models import TOTPDevice
 
 from core.auditoria import registrar_evento
 from core.models import TipoEvento
+from core.roles import es_administrador
 
 from .models import DominioOficial, HistorialDominio, HistorialMarca, Marca
 
@@ -15,7 +16,7 @@ from .models import DominioOficial, HistorialDominio, HistorialMarca, Marca
 def actualizar_marca(*, marca_id, nombre, tipo, activa, usuario, motivo):
     """Actualiza una marca y conserva su versión anterior."""
 
-    if usuario is None or not usuario.is_authenticated or not usuario.is_staff:
+    if not es_administrador(usuario):
         raise PermissionError("Se requiere un administrador autenticado.")
 
     if not motivo or not motivo.strip():
@@ -64,7 +65,7 @@ def actualizar_marca(*, marca_id, nombre, tipo, activa, usuario, motivo):
 def restaurar_marca(*, historial_id, usuario, motivo):
     """Restaura una versión anterior de una marca con auditoría."""
 
-    if usuario is None or not usuario.is_authenticated or not usuario.is_staff:
+    if not es_administrador(usuario):
         raise PermissionError("Se requiere un administrador autenticado.")
 
     if not motivo or not motivo.strip():
@@ -121,7 +122,7 @@ def restaurar_marca(*, historial_id, usuario, motivo):
 def solicitar_dominio_oficial(*, marca_id, dominio, fuente_verificacion, usuario, motivo):
     """Registra una solicitud de dominio oficial pendiente de aprobación."""
 
-    if usuario is None or not usuario.is_authenticated or not usuario.is_staff:
+    if not es_administrador(usuario):
         raise PermissionError("Se requiere un administrador autenticado.")
 
     if not motivo or not motivo.strip():
@@ -171,12 +172,7 @@ def aprobar_dominio_oficial(*, dominio_id, usuario, codigo, motivo):
             "La aprobación de dominios con TOTP debe ejecutarse fuera de una transacción externa."
         )
 
-    if (
-        usuario is None
-        or not usuario.is_authenticated
-        or not usuario.is_active
-        or not usuario.is_staff
-    ):
+    if not es_administrador(usuario):
         raise PermissionError("Se requiere un administrador activo.")
 
     if not isinstance(motivo, str) or not motivo.strip():
@@ -316,12 +312,7 @@ def solicitar_reemplazo_dominio(
 ):
     """Solicita reemplazar un dominio aprobado sin retirarlo todavía."""
 
-    if (
-        usuario is None
-        or not usuario.is_authenticated
-        or not usuario.is_active
-        or not usuario.is_staff
-    ):
+    if not es_administrador(usuario):
         raise PermissionError("Se requiere un administrador activo.")
 
     if not isinstance(motivo, str) or not motivo.strip():
