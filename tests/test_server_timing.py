@@ -1,3 +1,4 @@
+"""Cabecera Server-Timing: base para medir el tiempo de servidor en Dev (tarea 56)."""
 
 import re
 
