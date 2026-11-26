@@ -181,7 +181,9 @@ def test_sin_token_de_csrf_el_reporte_se_rechaza(peligroso):
 
 def test_el_reporte_no_tiene_campos_para_la_persona():
     campos = {campo.name for campo in ReporteDesacuerdo._meta.get_fields()}
-    assert campos == {"id", "analisis", "tipo", "estado", "fecha"}
+    # Los de la resolución son del analista que lo cierra en la cola, nunca de quien reporta.
+    resolucion = {"decision", "justificacion", "resuelto_por", "resuelto_en"}
+    assert campos == {"id", "analisis", "tipo", "estado", "fecha"} | resolucion
 
 
 def test_el_reporte_no_guarda_la_ip_ni_el_navegador(client, peligroso):

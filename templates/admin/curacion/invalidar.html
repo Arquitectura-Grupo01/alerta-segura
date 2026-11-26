@@ -1,0 +1,24 @@
+{% extends "admin/base_site.html" %}
+{% comment %}
+Invalidación manual de resultados (curacion/admin.py). Invalidar no cambia el veredicto:
+la siguiente consulta corre el análisis completo y el motor decide de nuevo.
+{% endcomment %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+<a href="{% url 'admin:index' %}">Inicio</a>
+&rsaquo; <a href="{% url 'admin:core_invalidaciondominio_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+&rsaquo; Invalidar resultados
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+<p>La próxima consulta del enlace, o de cualquier dirección de la web, se analiza de nuevo. El veredicto no cambia hasta entonces.</p>
+{{ formulario.non_field_errors }}
+<form method="post">{% csrf_token %}
+  {% for campo in formulario %}<div class="form-row">{{ campo.errors }}{{ campo.label_tag }} {{ campo }}{% if campo.help_text %}<div class="help">{{ campo.help_text }}</div>{% endif %}</div>{% endfor %}
+  <div class="submit-row"><input type="submit" value="Invalidar"></div>
+</form>
+</div>
+{% endblock %}

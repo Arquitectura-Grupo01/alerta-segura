@@ -1,0 +1,7 @@
+{% extends "admin/change_list.html" %}
+{% comment %}Lista de invalidaciones con el botón que abre el formulario de invalidación.{% endcomment %}
+
+{% block object-tools-items %}
+<li><a href="{% url 'admin:curacion_invalidar' %}" class="addlink">Invalidar resultados</a></li>
+{{ block.super }}
+{% endblock %}

@@ -207,3 +207,88 @@ def test_el_admin_no_permite_agregar_editar_ni_borrar(
     assert client.get(borrar).status_code == 403
     assert client.post(borrar, {"post": "yes"}).status_code == 403
     assert EventoAuditoria.objects.get(pk=evento.pk).motivo == "Dominio oficial agregado"
+
+
+# --- Tarea 36: consulta de la auditoría -----------------------------------------
+
+@pytest.fixture
+def administrador():
+    from core.cuentas import crear_cuenta_interna
+    from core.roles import ADMINISTRADOR
+
+    cuenta, _, _ = crear_cuenta_interna("admin-auditoria", "clave-de-prueba-larga", ADMINISTRADOR)
+    return cuenta
+
+
+def lista_filtrada(client, **filtros):
+    respuesta = client.get(reverse("admin:core_eventoauditoria_changelist"), filtros)
+    assert respuesta.status_code == 200
+    return list(respuesta.context["cl"].result_list)
+
+
+def test_un_administrador_filtra_por_tipo_y_usuario(
+    evento, analista, administrador, ingresar_consola, django_user_model,
+):
+    otra = django_user_model.objects.create_user("otra-prueba", password="x" * 14)
+    otro_evento = registrar_evento(TipoEvento.FALLO_SESION, usuario=otra)
+    client = ingresar_consola(administrador)
+    assert lista_filtrada(client, tipo__exact=TipoEvento.CAMBIO_CATALOGO) == [evento]
+    assert lista_filtrada(client, usuario__id__exact=otra.pk) == [otro_evento]
+    assert lista_filtrada(
+        client, tipo__exact=TipoEvento.FALLO_SESION, usuario__id__exact=analista.pk,
+    ) == []
+
+
+def test_un_administrador_filtra_por_fecha(evento, administrador, ingresar_consola):
+    from datetime import datetime, timezone
+
+    from django.utils import timezone as dj_timezone
+
+    antiguo = EventoAuditoria(
+        tipo=TipoEvento.INVALIDACION, fecha=datetime(2020, 5, 4, 12, tzinfo=timezone.utc),
+    )
+    antiguo.save()
+    client = ingresar_consola(administrador)
+    assert lista_filtrada(client, fecha__year=2020) == [antiguo]
+    # El filtro lateral "Últimos 7 días" de Django.
+    recientes = lista_filtrada(
+        client, fecha__gte=dj_timezone.localdate().isoformat() + " 00:00:00+00:00",
+    )
+    assert evento in recientes and antiguo not in recientes
+
+
+def test_el_filtro_de_usuario_solo_ofrece_cuentas_con_eventos(
+    evento, analista, administrador, ingresar_consola, django_user_model,
+):
+    django_user_model.objects.create_user("sin-eventos", password="x" * 14)
+    respuesta = ingresar_consola(administrador).get(
+        reverse("admin:core_eventoauditoria_changelist"),
+    )
+    html = respuesta.content.decode()
+    assert "analista-prueba" in html
+    assert "sin-eventos" not in html
+
+
+def test_el_administrador_tampoco_agrega_edita_ni_borra(evento, administrador, ingresar_consola):
+    client = ingresar_consola(administrador)
+    lista = reverse("admin:core_eventoauditoria_changelist")
+    cambiar = reverse("admin:core_eventoauditoria_change", args=[evento.pk])
+    borrar = reverse("admin:core_eventoauditoria_delete", args=[evento.pk])
+    assert client.get(reverse("admin:core_eventoauditoria_add")).status_code == 403
+    assert client.post(cambiar, {"motivo": "otro"}).status_code == 403
+    assert client.post(borrar, {"post": "yes"}).status_code == 403
+    # Tampoco hay acción en bloque para borrar desde la lista.
+    client.post(lista, {"action": "delete_selected", "_selected_action": [evento.pk]})
+    assert b"delete_selected" not in client.get(lista).content
+    assert EventoAuditoria.objects.filter(pk=evento.pk).exists()
+
+
+def test_un_analista_no_ve_la_lista_ni_el_detalle(evento, ingresar_consola):
+    from core.cuentas import crear_cuenta_interna
+    from core.roles import ANALISTA
+
+    cuenta, _, _ = crear_cuenta_interna("ana-auditoria", "clave-de-prueba-larga", ANALISTA)
+    client = ingresar_consola(cuenta)
+    assert client.get(reverse("admin:core_eventoauditoria_changelist")).status_code == 403
+    detalle = reverse("admin:core_eventoauditoria_change", args=[evento.pk])
+    assert client.get(detalle).status_code == 403

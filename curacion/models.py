@@ -1,12 +1,32 @@
 """Modelos de curación."""
 
+from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
 from analisis.models import Analisis
 
 
-class ReporteDesacuerdo(models.Model):
+class Resolucion(models.Model):
+    """Cómo se resolvió un pendiente en la cola de curación (curacion/servicios.py).
+
+    Queda vacío mientras está pendiente. La justificación se guarda enmascarada.
+    """
+
+    decision = models.CharField(max_length=20, blank=True)
+    justificacion = models.CharField(max_length=200, blank=True)
+    # PROTECT, como la auditoría: las cuentas internas se desactivan, no se borran.
+    resuelto_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT,
+        related_name="+",
+    )
+    resuelto_en = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        abstract = True
+
+
+class ReporteDesacuerdo(Resolucion):
     """Lo que una persona dice de un resultado: si era una estafa o si era legítimo.
 
     Se asocia al análisis y nunca a quien lo envía: no guarda IP, texto libre ni ningún
@@ -29,7 +49,7 @@ class ReporteDesacuerdo(models.Model):
     estado = models.CharField(max_length=10, choices=Estado.choices, default=Estado.PENDIENTE)
     fecha = models.DateTimeField(default=timezone.now)
 
-    class Meta:
+    class Meta(Resolucion.Meta):
         verbose_name = "reporte de desacuerdo"
         verbose_name_plural = "reportes de desacuerdo"
         ordering = ["-fecha"]
@@ -40,7 +60,7 @@ class ReporteDesacuerdo(models.Model):
         return f"{self.get_tipo_display()} sobre {self.analisis}"
 
 
-class SolicitudRevision(models.Model):
+class SolicitudRevision(Resolucion):
     """Pedido del dueño de una web que cree que la marcamos por error.
 
     Entra pendiente a la misma cola que los reportes de desacuerdo y, como ellos, no
@@ -59,7 +79,7 @@ class SolicitudRevision(models.Model):
     estado = models.CharField(max_length=10, choices=Estado.choices, default=Estado.PENDIENTE)
     fecha = models.DateTimeField(default=timezone.now)
 
-    class Meta:
+    class Meta(Resolucion.Meta):
         verbose_name = "pedido de revisión"
         verbose_name_plural = "pedidos de revisión"
         ordering = ["-fecha"]
