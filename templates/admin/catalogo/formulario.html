@@ -1,0 +1,22 @@
+{% extends "admin/base_site.html" %}
+{% comment %}Formulario de una acción del catálogo (catalogo/admin.py). La acción la hace un servicio auditado.{% endcomment %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+<a href="{% url 'admin:index' %}">Inicio</a>
+&rsaquo; <a href="{% url 'admin:app_list' 'catalogo' %}">Catálogo</a>
+&rsaquo; <a href="{{ volver }}">Volver</a>
+&rsaquo; {{ title }}
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main" class="formulario-consola">
+{% if explicacion %}<p class="ficha">{{ explicacion }}</p>{% endif %}
+{{ formulario.non_field_errors }}
+<form method="post">{% csrf_token %}
+  {% for campo in formulario %}<div class="form-row">{{ campo.errors }}{{ campo.label_tag }} {{ campo }}{% if campo.help_text %}<div class="help">{{ campo.help_text }}</div>{% endif %}</div>{% endfor %}
+  <div class="submit-row"><input type="submit" value="Guardar"> <a class="panel-boton panel-boton-secundario" href="{{ volver }}">Cancelar</a></div>
+</form>
+</div>
+{% endblock %}

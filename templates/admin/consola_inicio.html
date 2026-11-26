@@ -1,0 +1,28 @@
+{% extends "admin/index.html" %}
+{% comment %}
+Inicio de la consola: accesos directos según el rol y, debajo, todas las secciones.
+Cada app agrega sus accesos con admin.site.agregar_acceso (core/consola.py).
+{% endcomment %}
+
+{% block coltype %}colM{% endblock %}
+
+{% block content %}
+<div id="content-main">
+  {% if accesos %}
+  <ul class="accesos">
+    {% for acceso in accesos %}
+    <li class="acceso">
+      <a href="{{ acceso.url }}">
+        <span class="acceso-titulo">{{ acceso.titulo }}</span>
+        {% if acceso.cifra is not None %}<span class="acceso-cifra">{{ acceso.cifra }}</span>{% endif %}
+        <span class="acceso-descripcion">{{ acceso.descripcion }}</span>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% include "admin/app_list.html" with app_list=app_list show_changelinks=True %}
+</div>
+{% endblock %}
+
+{% block sidebar %}{% endblock %}

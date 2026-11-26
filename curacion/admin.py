@@ -8,7 +8,7 @@ from core.models import InvalidacionDominio
 from core.sondeo import posible_sondeo
 from motor.models import Reputacion
 
-from . import servicios
+from . import estadisticas, panel, servicios
 from .formularios import FormularioDecision, FormularioInvalidacion
 from .models import ReporteDesacuerdo, SolicitudRevision
 
@@ -170,3 +170,49 @@ class InvalidacionDominioAdmin(admin.ModelAdmin):
             "formulario": formulario,
         }
         return TemplateResponse(request, "admin/curacion/invalidar.html", contexto)
+
+
+# --- Panel de estadísticas y accesos del inicio de la consola -----------------------
+
+admin.site.agregar_vista("panel/", panel.panel_view, "panel")
+admin.site.agregar_vista("panel/analisis.csv", panel.exportar_csv, "panel_csv")
+
+
+def _acceso_panel(request):
+    if not request.user.has_perm(panel.PERMISO):
+        return None
+    dia = estadisticas.Filtros.por_defecto().hasta
+    hoy = estadisticas.Filtros(desde=dia, hasta=dia)
+    return {
+        "titulo": "Panel de estadísticas",
+        "cifra": estadisticas.analisis_filtrados(hoy).count(),
+        "descripcion": "Análisis de hoy. Abre veredictos, webs, marcas, fuentes y reportes.",
+        "url": reverse("admin:panel"),
+    }
+
+
+def _acceso_cola(request):
+    if not request.user.has_perm("curacion.view_reportedesacuerdo"):
+        return None
+    return {
+        "titulo": "Cola de curación",
+        "cifra": estadisticas.pendientes()["casos"],
+        "descripcion": "Webs con reportes o pedidos «Mi web aparece por error» sin revisar.",
+        "url": reverse("admin:curacion_reportedesacuerdo_changelist"),
+    }
+
+
+def _acceso_invalidar(request):
+    if not request.user.has_perm("core.change_invalidaciondominio"):
+        return None
+    return {
+        "titulo": "Invalidar resultados",
+        "cifra": None,
+        "descripcion": "Obliga a analizar de nuevo una dirección o una web completa.",
+        "url": reverse("admin:curacion_invalidar"),
+    }
+
+
+admin.site.agregar_acceso(_acceso_panel, orden=10)
+admin.site.agregar_acceso(_acceso_cola, orden=20)
+admin.site.agregar_acceso(_acceso_invalidar, orden=40)

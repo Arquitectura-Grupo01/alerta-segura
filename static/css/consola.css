@@ -1,0 +1,472 @@
+/* Consola interna de Alerta Segura: el admin de Django con la línea gráfica del sitio.
+   Mismo fondo casi negro, la fuente Geist y los colores de nivel para fondo oscuro de
+   sitio.css. Solo la ve el equipo, así que prioriza densidad y lectura rápida.
+   Sin estilos en línea, para respetar la CSP: los gráficos son SVG con clases. */
+
+@font-face {
+  font-family: "Geist";
+  src: url("../fonts/geist-latin.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Geist Mono";
+  src: url("../fonts/geist-mono-latin.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: dark;
+
+  /* Paleta de sitio.css. */
+  --noche: #0a141b;
+  --superficie: #101c25;
+  --superficie-alta: #16242f;
+  --texto: #f4f6f7;
+  --cuerpo: #c3cdd4;
+  --secundario: #93a3ae;
+  --linea: rgba(255, 255, 255, 0.09);
+  --linea-fuerte: rgba(255, 255, 255, 0.16);
+  --luz-azul: #9cc7e4;
+  --seguro: #6fbf95;
+  --cuidado: #e0ae52;
+  --peligroso: #ee8a6e;
+  --alto: #ff6b66;
+  --error-texto: #f2bfb2;
+
+  /* Variables del admin de Django (django/contrib/admin/static/admin/css/base.css). */
+  --primary: #1b2c38;
+  --secondary: var(--superficie);
+  --accent: var(--texto);
+  --primary-fg: var(--texto);
+
+  --body-fg: var(--cuerpo);
+  --body-bg: var(--noche);
+  --body-quiet-color: var(--secundario);
+  --body-medium-color: var(--cuerpo);
+  --body-loud-color: var(--texto);
+
+  --header-color: var(--texto);
+  --header-branding-color: var(--texto);
+  --header-bg: #0d1922;
+  --header-link-color: var(--cuerpo);
+
+  --breadcrumbs-fg: var(--secundario);
+  --breadcrumbs-link-fg: var(--texto);
+  --breadcrumbs-bg: var(--superficie);
+
+  --link-fg: var(--luz-azul);
+  --link-hover-color: var(--texto);
+  --link-selected-fg: var(--texto);
+
+  --hairline-color: var(--linea);
+  --border-color: var(--linea-fuerte);
+
+  --error-fg: var(--error-texto);
+
+  --message-success-bg: #12302a;
+  --message-warning-bg: #33290f;
+  --message-error-bg: #3a1a17;
+
+  --darkened-bg: var(--superficie);
+  --selected-bg: #1a2a35;
+  --selected-row: #1f2f3a;
+
+  --button-fg: var(--noche);
+  --button-bg: var(--texto);
+  --button-hover-bg: var(--cuerpo);
+  --default-button-bg: var(--texto);
+  --default-button-hover-bg: var(--cuerpo);
+  --close-button-bg: #22323d;
+  --close-button-hover-bg: #2c3e4a;
+  --delete-button-bg: #b4533f;
+  --delete-button-hover-bg: #8e2f2a;
+
+  --object-tools-fg: var(--noche);
+  --object-tools-bg: var(--cuerpo);
+  --object-tools-hover-bg: var(--texto);
+
+  --font-family-primary: "Geist", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-family-monospace: "Geist Mono", ui-monospace, Consolas, "Liberation Mono", monospace;
+}
+
+body {
+  background: var(--noche);
+  font-variant-numeric: tabular-nums;
+}
+
+#header {
+  border-bottom: 1px solid var(--linea);
+}
+
+#site-name a {
+  color: var(--texto);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+#site-name .consola-rotulo {
+  margin-left: 8px;
+  color: var(--secundario);
+  font-weight: 400;
+}
+
+#content h1 {
+  color: var(--texto);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+/* Foco visible en todo control, como en el sitio. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--luz-azul);
+  outline-offset: 2px;
+}
+
+.mono { font-family: var(--font-family-monospace); }
+
+.tenue { color: var(--secundario); }
+
+/* --- Inicio de la consola -------------------------------------------------- */
+
+.accesos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 12px;
+  margin: 0 0 32px;
+  padding: 0;
+  list-style: none;
+}
+
+/* El admin limita el inicio a 600 px y pone viñetas a toda lista. */
+.dashboard #content { width: auto; max-width: 80rem; }
+
+.accesos li { list-style: none; }
+
+.acceso a {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 7.5rem;
+  padding: 18px 20px;
+  border: 1px solid var(--linea);
+  border-radius: 12px;
+  background: var(--superficie);
+  color: var(--cuerpo);
+  text-decoration: none;
+}
+
+.acceso a:hover,
+.acceso a:focus-visible {
+  border-color: var(--linea-fuerte);
+  background: var(--superficie-alta);
+}
+
+.acceso-titulo {
+  color: var(--texto);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.acceso-cifra {
+  color: var(--texto);
+  font-size: 1.75rem;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.acceso-descripcion {
+  color: var(--secundario);
+  font-size: 0.8125rem;
+}
+
+/* --- Panel de estadísticas ------------------------------------------------- */
+
+.panel { max-width: 80rem; }
+
+.panel-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 16px;
+  margin-bottom: 24px;
+  padding: 16px 20px;
+  border: 1px solid var(--linea);
+  border-radius: 12px;
+  background: var(--superficie);
+}
+
+.panel-filtros label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--secundario);
+  font-size: 0.8125rem;
+}
+
+.panel-filtros input,
+.panel-filtros select {
+  min-height: 2.5rem;
+  padding: 6px 10px;
+  border: 1px solid var(--linea-fuerte);
+  border-radius: 8px;
+  background: var(--noche);
+  color: var(--texto);
+}
+
+.panel-filtros .botones {
+  display: flex;
+  gap: 8px;
+}
+
+.panel-boton,
+.panel-filtros button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.5rem;
+  padding: 0 16px;
+  border: 1px solid var(--texto);
+  border-radius: 8px;
+  background: var(--texto);
+  color: var(--noche);
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.panel-boton-secundario {
+  border-color: var(--linea-fuerte);
+  background: transparent;
+  color: var(--texto);
+}
+
+.panel-boton:hover,
+.panel-filtros button:hover { background: var(--cuerpo); }
+
+.panel-boton-secundario:hover { background: var(--superficie-alta); }
+
+.panel-errores {
+  margin: 0 0 16px;
+  color: var(--error-texto);
+}
+
+.cifras {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 12px;
+  margin: 0 0 24px;
+}
+
+.cifra {
+  padding: 16px 18px;
+  border: 1px solid var(--linea);
+  border-radius: 12px;
+  background: var(--superficie);
+}
+
+.cifra dt {
+  color: var(--secundario);
+  font-size: 0.8125rem;
+}
+
+.cifra dd {
+  margin: 4px 0 0;
+  color: var(--texto);
+  font-size: 1.75rem;
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.cifra .cifra-nota {
+  display: block;
+  margin-top: 2px;
+  color: var(--secundario);
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+.bloques {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 30rem), 1fr));
+  gap: 16px;
+}
+
+.bloque {
+  min-width: 0;
+  padding: 18px 20px 20px;
+  border: 1px solid var(--linea);
+  border-radius: 12px;
+  background: var(--superficie);
+}
+
+.bloque-ancho { grid-column: 1 / -1; }
+
+.bloque h2 {
+  margin: 0 0 4px;
+  padding: 0;
+  background: none;
+  color: var(--texto);
+  font-size: 1.0625rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.bloque-nota {
+  margin: 0 0 14px;
+  color: var(--secundario);
+  font-size: 0.8125rem;
+}
+
+.bloque table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.bloque th,
+.bloque td {
+  padding: 8px 10px 8px 0;
+  border-bottom: 1px solid var(--linea);
+  vertical-align: top;
+  text-align: left;
+}
+
+.bloque thead th {
+  background: none;
+  color: var(--secundario);
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: none;
+}
+
+.bloque td.numero,
+.bloque th.numero { text-align: right; }
+
+.bloque .vacio {
+  margin: 0;
+  color: var(--secundario);
+}
+
+.bloque .partir { overflow-wrap: anywhere; }
+
+/* Gráficos: SVG con clases, sin estilos en línea. */
+.grafico {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.grafico text {
+  fill: var(--secundario);
+  font-family: var(--font-family-primary);
+  font-size: 11px;
+}
+
+.grafico .eje { stroke: var(--linea-fuerte); stroke-width: 1; }
+
+.grafico .barra-fondo { fill: rgba(255, 255, 255, 0.04); }
+
+.grafico .barra-total { fill: var(--luz-azul); }
+
+.relleno-0 { fill: var(--seguro); }
+.relleno-1 { fill: var(--cuidado); }
+.relleno-2 { fill: var(--peligroso); }
+.relleno-3 { fill: var(--alto); }
+
+.leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--secundario);
+  font-size: 0.8125rem;
+}
+
+.leyenda li { display: inline-flex; align-items: center; gap: 6px; }
+
+.muestra {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.muestra-0 { background: var(--seguro); }
+.muestra-1 { background: var(--cuidado); }
+.muestra-2 { background: var(--peligroso); }
+.muestra-3 { background: var(--alto); }
+
+/* El nivel siempre con color y palabra a la vez. */
+.etiqueta-nivel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.etiqueta-nivel::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.nivel-0 { color: var(--seguro); }
+.nivel-1 { color: var(--cuidado); }
+.nivel-2 { color: var(--peligroso); }
+.nivel-3 { color: var(--alto); }
+
+.estado-bien { color: var(--seguro); }
+.estado-alerta { color: var(--cuidado); }
+.estado-mal { color: var(--alto); }
+
+.panel details { margin-top: 10px; }
+
+.panel summary {
+  color: var(--luz-azul);
+  cursor: pointer;
+}
+
+/* --- Formularios propios de la consola ------------------------------------- */
+
+.formulario-consola .form-row { padding: 10px 0; }
+
+.formulario-consola label { display: block; margin-bottom: 4px; color: var(--texto); }
+
+.formulario-consola input[type="text"],
+.formulario-consola input[type="url"],
+.formulario-consola select,
+.formulario-consola textarea { width: min(100%, 34rem); }
+
+.ficha {
+  margin: 0 0 24px;
+  padding: 16px 20px;
+  border: 1px solid var(--linea);
+  border-radius: 12px;
+  background: var(--superficie);
+}
+
+.ficha dl {
+  display: grid;
+  grid-template-columns: minmax(8rem, 14rem) minmax(0, 1fr);
+  gap: 6px 16px;
+  margin: 0;
+}
+
+.ficha dt { color: var(--secundario); }
+
+.ficha dd { margin: 0; overflow-wrap: anywhere; }
