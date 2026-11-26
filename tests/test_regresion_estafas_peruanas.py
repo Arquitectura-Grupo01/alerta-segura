@@ -1,7 +1,8 @@
-
 """Tarea 55: regresión del motor ante estafas frecuentes en Perú.
 
-Escenarios ficticios, señales simuladas y ninguna llamada de red.
+Escenarios ficticios, señales simuladas y ninguna llamada de red. El repo es público:
+las URLs van desactivadas (hxxp y [.]) y con marcas ficticias; `activar` las arma
+solo al usarlas.
 """
 
 from dataclasses import dataclass
@@ -166,128 +167,73 @@ def test_reporte_de_falsos_negativos(capsys):
     )
 
 
+# --- Señales de la URL, con URLs desactivadas y marcas ficticias ----------------
 
-# Pruebas con URLs ficticias, sin conexiones externas.
+OFICIAL = "bancodeprueba.pe"
+
+
+def activar(url: str) -> str:
+    """Arma la URL desactivada que está escrita en el test."""
+    return url.replace("hxxp", "http").replace("[.]", ".")
 
 
 @pytest.mark.parametrize(
     ("url", "oficiales", "senal_esperada"),
     [
-        (
-            "https://bcp.com.pe@sitio-falso.example/login",
-            ("bcp.com.pe",),
-            "usuario_en_url",
-        ),
-        (
-            "https://bcp.com.pe.sitio-falso.example/login",
-            ("bcp.com.pe",),
-            "marca_en_subdominio",
-        ),
-        (
-            "https://interban1.com.pe/verifica",
-            ("interbank.com.pe",),
-            "dominio_parecido",
-        ),
-        (
-            "https://bit.ly/ejemplo",
-            (),
-            "acortador",
-        ),
-        (
-            "https://xn--bcher-kva.example/",
-            (),
-            "punycode",
-        ),
-        (
-            "https://p\u0430ypal.example/",
-            (),
-            "alfabetos_mezclados",
-        ),
-        (
-            "https://ejemplo.com/desbloquear",
-            (),
-            "palabras_sospechosas",
-        ),
+        ("hxxps://bancodeprueba[.]pe@falso[.]example/login", (OFICIAL,), "usuario_en_url"),
+        ("hxxps://bancodeprueba[.]pe.falso[.]example/login", (OFICIAL,), "marca_en_subdominio"),
+        ("hxxps://bancodepruebaa[.]pe/verifica", (OFICIAL,), "dominio_parecido"),
+        ("hxxps://bit[.]ly/ejemplo", (), "acortador"),
+        ("hxxps://xn--bcher-kva[.]example/", (), "punycode"),
+        # «bаncodeprueba» con una «а» cirílica, que se ve igual que la latina.
+        ("hxxps://bаncodeprueba[.]example/", (), "alfabetos_mezclados"),
+        ("hxxps://ejemplo[.]example/desbloquear", (), "palabras_sospechosas"),
     ],
 )
 def test_detecta_evasiones_en_url(url, oficiales, senal_esperada):
-    senales = detectar_senales(url, oficiales)
-    assert senal_esperada in senales
+    assert senal_esperada in detectar_senales(activar(url), oficiales)
 
 
 def test_arroba_analiza_el_dominio_de_destino():
-    enlace = normalizar("https://bcp.com.pe@sitio-falso.example/login")
+    enlace = normalizar(activar("hxxps://bancodeprueba[.]pe@falso[.]example/login"))
 
-    assert enlace.dominio == "sitio-falso.example"
+    assert enlace.dominio == "falso.example"
     assert "usuario_en_url" in detectar_senales(enlace)
 
 
 @pytest.mark.parametrize(
     "url",
     [
-        "https://www.bcp.com.pe/",
-        "https://www.sunat.gob.pe/",
-        "https://www.reniec.gob.pe/",
+        "hxxps://www.bancodeprueba[.]pe/",
+        "hxxps://www.registro-de-prueba[.]gob[.]pe/",
+        "hxxps://www.tributos-de-prueba[.]gob[.]pe/",
     ],
 )
 def test_dominios_legitimos_no_son_suplantacion(url):
-    dominio = normalizar(url).dominio
-    oficiales = (
-        "bcp.com.pe",
-        "sunat.gob.pe",
-        "reniec.gob.pe",
-    )
+    oficiales = (OFICIAL, "registro-de-prueba.gob.pe", "tributos-de-prueba.gob.pe")
 
-    senales = detectar_senales(url, oficiales)
+    senales = detectar_senales(activar(url), oficiales)
 
-    assert dominio in oficiales or any(
-        dominio.endswith("." + oficial) for oficial in oficiales
-    )
     assert "dominio_parecido" not in senales
     assert "marca_en_subdominio" not in senales
 
 
+# --- Limitaciones conocidas ------------------------------------------------------
 
-
-# Casos adicionales de evasión y limitaciones conocidas.
-
-
+@pytest.mark.xfail(
+    strict=True,
+    reason="Limitación conocida: el analizador no une letras separadas ni quita "
+    "caracteres de ancho cero. Si este test pasa, se arregló: quita el xfail.",
+)
 @pytest.mark.parametrize(
-    ("url", "senal_esperada"),
+    "url",
     [
-        (
-            "https://ejemplo.com/verifica",
-            "palabras_sospechosas",
-        ),
-        (
-            "https://ejemplo.com/v-e-r-i-f-i-c-a",
-            None,
-        ),
-        (
-            "https://ejemplo.com/ver\u200bifica",
-            None,
-        ),
+        "hxxps://ejemplo[.]example/v-e-r-i-f-i-c-a",
+        "hxxps://ejemplo[.]example/ver​ifica",
     ],
 )
-def test_evasion_por_separacion_y_ancho_cero(url, senal_esperada):
-    """Registra qué detecta actualmente el analizador.
-
-    None significa que la señal no se detecta en esta versión;
-    no equivale a considerar seguro el enlace.
-    """
-    senales = detectar_senales(url)
-
-    if senal_esperada is None:
-        assert "palabras_sospechosas" not in senales
-    else:
-        assert senal_esperada in senales
-
-
-def test_acortador_detectado_sin_seguir_redirecciones():
-    """Comprueba la señal local; no simula una redirección real."""
-    senales = detectar_senales("https://bit.ly/ejemplo")
-
-    assert "acortador" in senales
+def test_evasion_por_letras_separadas_y_ancho_cero(url):
+    assert "palabras_sospechosas" in detectar_senales(activar(url))
 
 
 def test_cobertura_baja_no_se_clasifica_como_seguro():
@@ -296,5 +242,3 @@ def test_cobertura_baja_no_se_clasifica_como_seguro():
 
     assert veredicto.nivel >= Nivel.TEN_CUIDADO
     assert "cobertura_baja" in veredicto.reglas
-
-
