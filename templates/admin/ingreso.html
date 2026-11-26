@@ -1,0 +1,31 @@
+{% extends "admin/login.html" %}
+{% comment %}
+Ingreso a la consola interna (core/consola.py). Igual que el login del admin, más el
+código del autenticador o de recuperación. No hay enlace para registrarse ni para
+recuperar la contraseña: las cuentas y los reinicios los hace un administrador.
+{% endcomment %}
+
+{% block content %}
+{% if form.errors and not form.non_field_errors %}
+<p class="errornote">Completa los campos marcados.</p>
+{% endif %}
+
+{% for error in form.non_field_errors %}
+<p class="errornote">{{ error }}</p>
+{% endfor %}
+
+<div id="content-main">
+
+{% if user.is_authenticated %}
+<p class="errornote">Tu sesión no tiene acceso a esta página. Ingresa con una cuenta interna y su código.</p>
+{% endif %}
+
+{% comment %}Usuario, contraseña y código, en el orden de core.consola.FormularioIngreso.{% endcomment %}
+<form id="login-form" method="post" action="{{ app_path }}">{% csrf_token %}
+  {% for campo in form %}<div class="form-row">{{ campo.errors }}{{ campo.label_tag }} {{ campo }}</div>{% endfor %}
+  <input type="hidden" name="next" value="{{ next }}">
+  <div class="submit-row"><input type="submit" value="Ingresar"></div>
+</form>
+
+</div>
+{% endblock %}
