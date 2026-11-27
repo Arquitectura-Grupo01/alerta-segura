@@ -271,6 +271,19 @@ class Fuente:
                 return False
         return True
 
+    def estado_operativo(self) -> dict:
+        """Cómo está la fuente ahora: si tiene clave, si el circuito está abierto y cuánta
+        cuota del día gastó. No consulta al proveedor. Lo muestra el panel de la consola."""
+        return {
+            "nombre": self.nombre,
+            "titulo": self.titulo,
+            "disponible": self.disponible(),
+            "circuito_abierto": bool(cache.get(self._clave("abierto"))),
+            "fallos": cache.get(self._clave("fallos"), 0),
+            "cuota_diaria": self.cuota_diaria,
+            "cuota_usada": cache.get(self._clave_de_cuota(), 0) if self.cuota_diaria else None,
+        }
+
     def _gastar_cuota(self) -> None:
         if self.cuota_diaria is not None:
             ahora = datetime.now(UTC)
@@ -293,6 +306,12 @@ def fuentes_activas() -> list[Fuente]:
     if _FUENTES is None:
         _FUENTES = _crear_fuentes()
     return [fuente for fuente in _FUENTES if fuente.disponible()]
+
+
+def estado_operativo() -> list[dict]:
+    """El estado de todas las fuentes, también las que se omiten por no tener clave."""
+    fuentes_activas()
+    return [fuente.estado_operativo() for fuente in _FUENTES]
 
 
 def _crear_fuentes() -> list[Fuente]:

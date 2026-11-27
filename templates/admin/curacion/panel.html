@@ -1,0 +1,320 @@
+{% extends "admin/base_site.html" %}
+{% load l10n %}
+{% comment %}
+Panel de estadísticas (curacion/panel.py y curacion/estadisticas.py). Solo agregados de
+datos propios. Todo texto que viene de un ciudadano o de una web se muestra con el
+autoescapado de Django. Los gráficos son SVG con clases de static/css/consola.css y cada
+uno tiene una tabla con los mismos números.
+{% endcomment %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+<a href="{% url 'admin:index' %}">Inicio</a>
+&rsaquo; Panel de estadísticas
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main" class="panel">
+
+<form class="panel-filtros" method="get" action="{% url 'admin:panel' %}">
+  {% for campo in formulario %}<label for="{{ campo.id_for_label }}">{{ campo.label }}{{ campo }}</label>{% endfor %}
+  <div class="botones">
+    <button type="submit">Aplicar</button>
+    <a class="panel-boton panel-boton-secundario" href="{% url 'admin:panel' %}">Últimos 30 días</a>
+    <a class="panel-boton panel-boton-secundario" href="{% url 'admin:panel_csv' %}{% if consulta_actual %}?{{ consulta_actual }}{% endif %}">Descargar CSV</a>
+  </div>
+</form>
+{% if formulario.errors %}
+<div class="panel-errores">{{ formulario.non_field_errors }}{% for campo in formulario %}{{ campo.errors }}{% endfor %}<p>Se muestran los últimos 30 días.</p></div>
+{% endif %}
+
+<p class="bloque-nota">Del {{ filtros.desde|date:"d/m/Y" }} al {{ filtros.hasta|date:"d/m/Y" }}, en hora de Lima{% if filtros.tipo %}, tipo {{ filtros.tipo }}{% endif %}{% if filtros.dominio %}, webs que contienen «{{ filtros.dominio }}»{% endif %}.</p>
+
+<h2 class="visually-hidden">Lo que espera revisión</h2>
+<dl class="cifras">
+  <div class="cifra"><dt>Casos en la cola</dt><dd><a href="{% url 'admin:curacion_reportedesacuerdo_changelist' %}">{{ pendientes.casos }}</a><span class="cifra-nota">webs con algo pendiente</span></dd></div>
+  <div class="cifra"><dt>Reportes pendientes</dt><dd>{{ pendientes.reportes }}<span class="cifra-nota">«¿Te parece equivocado?»</span></dd></div>
+  <div class="cifra"><dt>Pedidos pendientes</dt><dd>{{ pendientes.pedidos }}<span class="cifra-nota">«Mi web aparece por error»</span></dd></div>
+</dl>
+
+<h2 class="visually-hidden">Resumen del período</h2>
+<dl class="cifras">
+  <div class="cifra"><dt>Análisis</dt><dd>{{ resumen.total }}<span class="cifra-nota">{{ resumen.dominios }} webs distintas</span></dd></div>
+  <div class="cifra"><dt>Peligroso o más</dt><dd class="nivel-2">{{ resumen.riesgosos }}<span class="cifra-nota">{{ resumen.porcentaje_riesgosos }} % del total</span></dd></div>
+  <div class="cifra"><dt>Desde la caché</dt><dd>{{ resumen.porcentaje_cache }} %<span class="cifra-nota">{{ resumen.desde_cache }} sin consultar de nuevo</span></dd></div>
+  <div class="cifra"><dt>Puntaje promedio</dt><dd>{{ resumen.puntaje_promedio }}<span class="cifra-nota">de 0 a 100</span></dd></div>
+  <div class="cifra"><dt>Cobertura promedio</dt><dd>{{ resumen.cobertura_promedio }} %<span class="cifra-nota">Seguro exige 70 % o más</span></dd></div>
+  <div class="cifra"><dt>Reportes recibidos</dt><dd>{{ reportes.total }}<span class="cifra-nota">{{ reportes.era_estafa }} estafa, {{ reportes.era_legitimo }} legítimo</span></dd></div>
+  <div class="cifra"><dt>Pedidos recibidos</dt><dd>{{ pedidos.total }}<span class="cifra-nota">{{ pedidos.pendientes }} sin revisar</span></dd></div>
+</dl>
+
+<div class="bloques">
+
+  <section class="bloque bloque-ancho" aria-labelledby="t-dias">
+    <h2 id="t-dias">Análisis por día</h2>
+    <p class="bloque-nota">Cada barra es un día de Lima, con un color por veredicto. Tope del eje: {{ grafico_dias.tope }}.</p>
+    {% localize off %}
+    <svg class="grafico" viewBox="0 0 {{ grafico_dias.ancho }} {{ grafico_dias.alto }}" role="img" aria-labelledby="t-dias">
+      <line class="eje" x1="{{ grafico_dias.x_eje }}" y1="0" x2="{{ grafico_dias.x_eje }}" y2="{{ grafico_dias.base }}"/>
+      <line class="eje" x1="{{ grafico_dias.x_eje }}" y1="{{ grafico_dias.base }}" x2="{{ grafico_dias.ancho }}" y2="{{ grafico_dias.base }}"/>
+      <text x="0" y="10">{{ grafico_dias.tope }}</text>
+      {% if grafico_dias.mitad %}<text x="0" y="{{ grafico_dias.y_mitad }}">{{ grafico_dias.mitad }}</text>{% endif %}
+      <text x="0" y="{{ grafico_dias.base }}">0</text>
+      {% for barra in grafico_dias.barras %}
+      <g>
+        <title>{{ barra.dia|date:"d/m" }}: {{ barra.total }} análisis</title>
+        <rect class="barra-fondo" x="{{ barra.x }}" y="0" width="{{ grafico_dias.ancho_barra }}" height="{{ grafico_dias.base }}"/>
+        {% for tramo in barra.tramos %}<rect class="relleno-{{ tramo.nivel }}" x="{{ barra.x }}" y="{{ tramo.y }}" width="{{ grafico_dias.ancho_barra }}" height="{{ tramo.alto }}"/>{% endfor %}
+        {% if barra.etiqueta %}<text x="{{ barra.x }}" y="{{ grafico_dias.y_texto }}">{{ barra.dia|date:"d/m" }}</text>{% endif %}
+      </g>
+      {% endfor %}
+    </svg>
+    {% endlocalize %}
+    <ul class="leyenda">
+      {% for fila in resumen.por_nivel %}<li><span class="muestra muestra-{{ fila.nivel }}"></span>{{ fila.texto }}</li>{% endfor %}
+    </ul>
+    <details>
+      <summary>Ver los números por día</summary>
+      <table>
+        <thead><tr><th scope="col">Día</th>{% for fila in resumen.por_nivel %}<th scope="col" class="numero">{{ fila.texto }}</th>{% endfor %}<th scope="col" class="numero">Total</th></tr></thead>
+        <tbody>
+        {% for dia in por_dia %}
+          <tr><td>{{ dia.dia|date:"d/m/Y" }}</td>{% for cantidad in dia.niveles %}<td class="numero">{{ cantidad }}</td>{% endfor %}<td class="numero">{{ dia.total }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </details>
+  </section>
+
+  <section class="bloque" aria-labelledby="t-niveles">
+    <h2 id="t-niveles">Distribución de veredictos</h2>
+    <p class="bloque-nota">Siempre con color y palabra.</p>
+    {% include "admin/curacion/grafico_horizontal.html" with grafico=grafico_niveles titulo="t-niveles" %}
+    <table>
+      <thead><tr><th scope="col">Veredicto</th><th scope="col" class="numero">Análisis</th><th scope="col" class="numero">%</th></tr></thead>
+      <tbody>
+      {% for fila in resumen.por_nivel %}
+        <tr><td><span class="etiqueta-nivel nivel-{{ fila.nivel }}">{{ fila.texto }}</span></td><td class="numero">{{ fila.cantidad }}</td><td class="numero">{{ fila.porcentaje }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="bloque" aria-labelledby="t-maliciosos">
+    <h2 id="t-maliciosos">Webs peligrosas más consultadas</h2>
+    <p class="bloque-nota">Webs con veredicto Peligroso o Peligro alto. El color es el nivel más alto que tuvieron.</p>
+    {% if top_maliciosos %}
+    {% include "admin/curacion/grafico_horizontal.html" with grafico=grafico_maliciosos titulo="t-maliciosos" %}
+    <table>
+      <thead><tr><th scope="col">Web</th><th scope="col">Nivel más alto</th><th scope="col" class="numero">Consultas</th></tr></thead>
+      <tbody>
+      {% for fila in top_maliciosos %}
+        <tr>
+          <td class="partir mono"><a href="{% url 'admin:analisis_analisis_changelist' %}?q={{ fila.dominio|urlencode }}">{{ fila.dominio }}</a></td>
+          <td>{% include "admin/curacion/nivel.html" with nivel=fila.nivel %}</td>
+          <td class="numero">{{ fila.cantidad }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p class="vacio">Ninguna en el período.</p>{% endif %}
+  </section>
+
+  <section class="bloque bloque-ancho" aria-labelledby="t-urls">
+    <h2 id="t-urls">Direcciones completas más consultadas</h2>
+    <p class="bloque-nota">Solo hay dirección completa en los análisis Peligroso o Peligro alto. En los demás se guarda solo la web, porque una dirección puede traer el token o los datos de la persona.</p>
+    {% if top_urls %}
+    <table>
+      <thead><tr><th scope="col">Dirección</th><th scope="col">Nivel más alto</th><th scope="col" class="numero">Consultas</th></tr></thead>
+      <tbody>
+      {% for fila in top_urls %}
+        <tr><td class="partir mono">{{ fila.url }}</td><td>{% include "admin/curacion/nivel.html" with nivel=fila.nivel %}</td><td class="numero">{{ fila.cantidad }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p class="vacio">Ninguna en el período.</p>{% endif %}
+  </section>
+
+  <section class="bloque" aria-labelledby="t-webs">
+    <h2 id="t-webs">Webs más consultadas</h2>
+    <p class="bloque-nota">Todas, sin importar el veredicto.</p>
+    {% if top_dominios %}
+    <table>
+      <thead><tr><th scope="col">Web</th><th scope="col">Nivel más alto</th><th scope="col" class="numero">Consultas</th></tr></thead>
+      <tbody>
+      {% for fila in top_dominios %}
+        <tr>
+          <td class="partir mono"><a href="{% url 'admin:analisis_analisis_changelist' %}?q={{ fila.dominio|urlencode }}">{{ fila.dominio }}</a></td>
+          <td>{% include "admin/curacion/nivel.html" with nivel=fila.nivel %}</td>
+          <td class="numero">{{ fila.cantidad }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p class="vacio">Ningún análisis en el período.</p>{% endif %}
+  </section>
+
+  <section class="bloque" aria-labelledby="t-marcas">
+    <h2 id="t-marcas">Marcas más suplantadas</h2>
+    <p class="bloque-nota">Según la similitud con el catálogo de marcas.</p>
+    {% if top_marcas %}
+    {% include "admin/curacion/grafico_horizontal.html" with grafico=grafico_marcas titulo="t-marcas" %}
+    <table>
+      <thead><tr><th scope="col">Marca</th><th scope="col" class="numero">Webs</th><th scope="col" class="numero">Consultas</th></tr></thead>
+      <tbody>
+      {% for fila in top_marcas %}<tr><td>{{ fila.marca_suplantada }}</td><td class="numero">{{ fila.dominios }}</td><td class="numero">{{ fila.cantidad }}</td></tr>{% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p class="vacio">Ninguna en el período.</p>{% endif %}
+  </section>
+
+  <section class="bloque" aria-labelledby="t-modalidades">
+    <h2 id="t-modalidades">Modalidades de estafa sugeridas</h2>
+    <p class="bloque-nota">Pistas por las palabras de la dirección, desde Ten cuidado y con algún hallazgo.</p>
+    {% if top_modalidades %}
+    <table>
+      <thead><tr><th scope="col">Modalidad</th><th scope="col" class="numero">Análisis</th></tr></thead>
+      <tbody>
+      {% for fila in top_modalidades %}<tr><td>{{ fila.titulo }}</td><td class="numero">{{ fila.cantidad }}</td></tr>{% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p class="vacio">Ninguna en el período.</p>{% endif %}
+  </section>
+
+  <section class="bloque" aria-labelledby="t-reglas">
+    <h2 id="t-reglas">Reglas del motor más activadas</h2>
+    <p class="bloque-nota">Los pisos de nivel que se aplicaron.</p>
+    {% if senales.reglas %}
+    <table>
+      <thead><tr><th scope="col">Regla</th><th scope="col" class="numero">Análisis</th></tr></thead>
+      <tbody>{% for fila in senales.reglas %}<tr><td class="mono">{{ fila.codigo }}</td><td class="numero">{{ fila.cantidad }}</td></tr>{% endfor %}</tbody>
+    </table>
+    {% else %}<p class="vacio">Ninguna en el período.</p>{% endif %}
+  </section>
+
+  <section class="bloque" aria-labelledby="t-heuristicas">
+    <h2 id="t-heuristicas">Trucos más vistos en las direcciones</h2>
+    <p class="bloque-nota">Heurísticas propias: acortadores, IP en lugar de dominio, letras de otros alfabetos y otras.</p>
+    {% if senales.heuristicas %}
+    <table>
+      <thead><tr><th scope="col">Heurística</th><th scope="col" class="numero">Análisis</th></tr></thead>
+      <tbody>{% for fila in senales.heuristicas %}<tr><td class="mono">{{ fila.codigo }}</td><td class="numero">{{ fila.cantidad }}</td></tr>{% endfor %}</tbody>
+    </table>
+    {% else %}<p class="vacio">Ninguno en el período.</p>{% endif %}
+  </section>
+
+  <section class="bloque bloque-ancho" aria-labelledby="t-fuentes">
+    <h2 id="t-fuentes">Fuentes externas</h2>
+    <p class="bloque-nota">Qué respondió cada fuente en los análisis del período. Solo el estado que guardó cada análisis, nunca la respuesta del proveedor.</p>
+    {% if fuentes %}
+    <table>
+      <thead><tr><th scope="col">Fuente</th>{% for estado in estados_fuente %}<th scope="col" class="numero">{{ estado }}</th>{% endfor %}<th scope="col" class="numero">Respondió</th></tr></thead>
+      <tbody>
+      {% for fila in fuentes %}
+        <tr><td>{{ fila.titulo }}</td>{% for cantidad in fila.estados %}<td class="numero">{{ cantidad }}</td>{% endfor %}<td class="numero">{{ fila.respondio }} %</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p class="vacio">Ningún análisis consultó fuentes en el período.</p>{% endif %}
+
+    <h3>Ahora mismo</h3>
+    <p class="bloque-nota">Presupuesto global de consultas externas en esta hora: {{ en_vivo.presupuesto_usado }} de {{ en_vivo.presupuesto_total }} ({{ en_vivo.presupuesto_porcentaje }} %).</p>
+    <table>
+      <thead><tr><th scope="col">Fuente</th><th scope="col">Clave</th><th scope="col">Circuito</th><th scope="col" class="numero">Fallos seguidos</th><th scope="col" class="numero">Cuota de hoy</th></tr></thead>
+      <tbody>
+      {% for fuente in en_vivo.fuentes %}
+        <tr>
+          <td>{{ fuente.titulo }}</td>
+          <td>{% if fuente.disponible %}<span class="estado-bien">Configurada</span>{% else %}<span class="estado-alerta">Sin clave, se omite</span>{% endif %}</td>
+          <td>{% if fuente.circuito_abierto %}<span class="estado-mal">Abierto, en pausa</span>{% else %}<span class="estado-bien">Cerrado</span>{% endif %}</td>
+          <td class="numero">{{ fuente.fallos }}</td>
+          <td class="numero">{% if fuente.cuota_diaria %}{{ fuente.cuota_usada }} de {{ fuente.cuota_diaria }}{% else %}Sin tope{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="bloque bloque-ancho" aria-labelledby="t-reportes">
+    <h2 id="t-reportes">Reportes de los ciudadanos</h2>
+    <p class="bloque-nota">Lo que la gente marcó en «¿Te parece equivocado?»: {{ reportes.era_estafa }} «Sí, era estafa» y {{ reportes.era_legitimo }} «No, era legítimo». Decisiones: {{ reportes.confirmados }} fraudes confirmados, {{ reportes.descartados }} descartados y {{ reportes.falsos_positivos }} falsos positivos. Ningún reporte cambia un veredicto por sí solo.</p>
+    {% if reportes.ultimos %}
+    <table>
+      <thead><tr><th scope="col">Fecha</th><th scope="col">Reporte</th><th scope="col">Web</th><th scope="col">Veredicto del análisis</th><th scope="col">Dirección</th><th scope="col">Estado</th></tr></thead>
+      <tbody>
+      {% for reporte in reportes.ultimos %}
+        <tr>
+          <td>{{ reporte.fecha|date:"d/m/Y H:i" }}</td>
+          <td>{{ reporte.get_tipo_display }}</td>
+          <td class="partir mono">{{ reporte.analisis.dominio }}</td>
+          <td>{% include "admin/curacion/nivel.html" with nivel=reporte.analisis.nivel %}</td>
+          <td class="partir mono">{{ reporte.analisis.url|default:"Solo se guardó la web" }}</td>
+          <td>{% if reporte.estado == "pendiente" %}<a href="{% url 'admin:curacion_caso' reporte.analisis.dominio %}">Pendiente, abrir caso</a>{% else %}Resuelto: {% include "admin/curacion/decision.html" with decision=reporte.decision %}{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p class="vacio">Ningún reporte en el período.</p>{% endif %}
+  </section>
+
+  <section class="bloque bloque-ancho" aria-labelledby="t-pedidos">
+    <h2 id="t-pedidos">Pedidos «Mi web aparece por error»</h2>
+    <p class="bloque-nota">Los mensajes se guardaron con correos, teléfonos, DNI, cuentas y montos tapados.</p>
+    {% if pedidos.ultimos %}
+    <table>
+      <thead><tr><th scope="col">Fecha</th><th scope="col">Web</th><th scope="col">Mensaje</th><th scope="col">Estado</th></tr></thead>
+      <tbody>
+      {% for pedido in pedidos.ultimos %}
+        <tr>
+          <td>{{ pedido.fecha|date:"d/m/Y H:i" }}</td>
+          <td class="partir mono">{{ pedido.dominio }}</td>
+          <td class="partir">{{ pedido.mensaje|truncatechars:160 }}</td>
+          <td>{% if pedido.estado == "pendiente" %}<a href="{% url 'admin:curacion_caso' pedido.dominio %}">Pendiente, abrir caso</a>{% else %}Resuelto: {% include "admin/curacion/decision.html" with decision=pedido.decision %}{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p class="vacio">Ningún pedido en el período.</p>{% endif %}
+  </section>
+
+  <section class="bloque" aria-labelledby="t-regiones">
+    <h2 id="t-regiones">Por departamento</h2>
+    <p class="bloque-nota">Aproximado. Se ocultan los grupos de menos de 5 análisis para que nadie pueda ser identificado. El departamento se llenará con la tarea 52; hasta entonces todo figura «Sin dato».</p>
+    {% if departamentos.visibles %}
+    <table>
+      <thead><tr><th scope="col">Departamento</th><th scope="col" class="numero">Análisis</th></tr></thead>
+      <tbody>{% for fila in departamentos.visibles %}<tr><td>{{ fila.departamento }}</td><td class="numero">{{ fila.cantidad }}</td></tr>{% endfor %}</tbody>
+    </table>
+    {% endif %}
+    {% if departamentos.grupos_ocultos %}<p class="bloque-nota">{{ departamentos.ocultos }} análisis en {{ departamentos.grupos_ocultos }} grupos con menos de 5, ocultos.</p>{% endif %}
+    {% if not departamentos.visibles and not departamentos.grupos_ocultos %}<p class="vacio">Ningún análisis en el período.</p>{% endif %}
+  </section>
+
+  {% if seguridad %}
+  <section class="bloque" aria-labelledby="t-seguridad">
+    <h2 id="t-seguridad">Seguridad y auditoría</h2>
+    <p class="bloque-nota">Solo lo ve un administrador. Cada fila abre la auditoría filtrada.</p>
+    <table>
+      <thead><tr><th scope="col">Evento</th><th scope="col" class="numero">En el período</th></tr></thead>
+      <tbody>
+      {% for fila in seguridad.por_tipo %}
+        <tr><td><a href="{% url 'admin:core_eventoauditoria_changelist' %}?tipo__exact={{ fila.tipo|urlencode }}">{{ fila.texto }}</a></td><td class="numero">{{ fila.cantidad }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% if seguridad.ultimos %}
+    <details>
+      <summary>Últimos eventos de acceso y seguridad</summary>
+      <table>
+        <thead><tr><th scope="col">Fecha</th><th scope="col">Evento</th><th scope="col">Cuenta</th></tr></thead>
+        <tbody>{% for evento in seguridad.ultimos %}<tr><td>{{ evento.fecha|date:"d/m/Y H:i" }}</td><td>{{ evento.get_tipo_display }}</td><td>{{ evento.usuario|default:"Sin cuenta" }}</td></tr>{% endfor %}</tbody>
+      </table>
+    </details>
+    {% endif %}
+  </section>
+  {% endif %}
+
+</div>
+</div>
+{% endblock %}

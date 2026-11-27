@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
+from django.urls import reverse
 
 from .models import EventoAuditoria
 from .roles import es_administrador
@@ -60,3 +61,29 @@ class CuentaInternaAdmin(UserAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+def _acceso_auditoria(request):
+    if not es_administrador(request.user):
+        return None
+    return {
+        "titulo": "Auditoría",
+        "cifra": None,
+        "descripcion": "Inicios de sesión, bloqueos, decisiones y cambios. Solo lectura.",
+        "url": reverse("admin:core_eventoauditoria_changelist"),
+    }
+
+
+def _acceso_cuentas(request):
+    if not request.user.has_perm("auth.view_user"):
+        return None
+    return {
+        "titulo": "Cuentas internas",
+        "cifra": User.objects.filter(is_staff=True, is_active=True).count(),
+        "descripcion": "Cuentas activas del equipo. El rol se asigna con los grupos.",
+        "url": reverse("admin:auth_user_changelist"),
+    }
+
+
+admin.site.agregar_acceso(_acceso_auditoria, orden=70)
+admin.site.agregar_acceso(_acceso_cuentas, orden=80)

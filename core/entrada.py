@@ -122,11 +122,20 @@ def limitar(politica: Politica):
     return decorador
 
 
+def _clave_presupuesto() -> str:
+    return f"entrada:presupuesto_externo:{int(time.time() // 3600)}"
+
+
+def presupuesto_externo_usado() -> int:
+    """Consultas externas gastadas en la hora en curso. Lo muestra el panel de la consola."""
+    _, total = cache.get(_clave_presupuesto(), (0, 0))
+    return total
+
+
 def consumir_presupuesto_externo() -> bool:
     """Gasta una consulta del presupuesto global de la hora. False si ya se agotó.
 
     Quien consulta una fuente externa lo llama antes. Si devuelve False, el análisis
     sigue solo con señales propias y lo dice.
     """
-    clave = f"entrada:presupuesto_externo:{int(time.time() // 3600)}"
-    return _contar(clave, 3600) <= CONSULTAS_EXTERNAS_POR_HORA
+    return _contar(_clave_presupuesto(), 3600) <= CONSULTAS_EXTERNAS_POR_HORA

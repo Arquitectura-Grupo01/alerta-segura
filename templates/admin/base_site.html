@@ -1,0 +1,21 @@
+{% extends "admin/base.html" %}
+{% load static %}
+{% comment %}
+Todas las páginas de la consola (core/consola.py). Usa la línea gráfica del sitio con
+static/css/consola.css, siempre en modo oscuro: sin el selector de tema del admin.
+{% endcomment %}
+
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ site_title }}{% endblock %}
+
+{% block dark-mode-vars %}{% endblock %}
+
+{% block extrastyle %}{{ block.super }}
+<link rel="preload" href="{% static 'fonts/geist-latin.woff2' %}" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="{% static 'css/consola.css' %}">
+{% endblock %}
+
+{% block branding %}
+<div id="site-name"><a href="{% url 'admin:index' %}">Alerta Segura<span class="consola-rotulo">Consola interna</span></a></div>
+{% endblock %}
+
+{% block nav-global %}{% endblock %}

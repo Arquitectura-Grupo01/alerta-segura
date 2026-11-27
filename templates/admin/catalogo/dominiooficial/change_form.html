@@ -1,0 +1,20 @@
+{% extends "admin/change_form.html" %}
+{% comment %}Ficha de un dominio oficial: aprobar si está pendiente, reemplazar si está aprobado, y su historial.{% endcomment %}
+
+{% block object-tools-items %}
+{% if puede_cambiar and original.estado == "pendiente" %}<li><a href="{% url 'admin:catalogo_dominiooficial_aprobar' original.pk %}">Aprobar con mi código</a></li>{% endif %}
+{% if puede_cambiar and original.estado == "aprobado" %}<li><a href="{% url 'admin:catalogo_dominiooficial_reemplazar' original.pk %}">Solicitar reemplazo</a></li>{% endif %}
+{{ block.super }}
+{% endblock %}
+
+{% block after_field_sets %}
+<div class="bloque">
+  <h2>Historial</h2>
+  {% if historial %}
+  <table>
+    <thead><tr><th scope="col">Fecha</th><th scope="col">Acción</th><th scope="col">Estado anterior</th><th scope="col">Cuenta</th><th scope="col">Motivo</th></tr></thead>
+    <tbody>{% for version in historial %}<tr><td>{{ version.fecha|date:"d/m/Y H:i" }}</td><td>{{ version.get_accion_display }}</td><td>{{ version.get_estado_display }}</td><td>{{ version.usuario }}</td><td>{{ version.motivo }}</td></tr>{% endfor %}</tbody>
+  </table>
+  {% else %}<p class="vacio">Sin cambios registrados.</p>{% endif %}
+</div>
+{% endblock %}

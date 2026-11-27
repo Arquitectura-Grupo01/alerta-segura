@@ -1,0 +1,43 @@
+{% extends "admin/change_form.html" %}
+{% comment %}Ficha de una marca: datos de solo lectura, sus dominios y su historial con restauración.{% endcomment %}
+
+{% block object-tools-items %}
+{% if puede_cambiar %}<li><a href="{% url 'admin:catalogo_marca_editar' original.pk %}">Editar</a></li>{% endif %}
+{{ block.super }}
+{% endblock %}
+
+{% block after_field_sets %}
+<div class="bloque">
+  <h2>Dominios oficiales</h2>
+  {% if dominios %}
+  <table>
+    <thead><tr><th scope="col">Dominio</th><th scope="col">Estado</th></tr></thead>
+    <tbody>{% for dominio in dominios %}<tr><td class="mono"><a href="{% url 'admin:catalogo_dominiooficial_change' dominio.pk %}">{{ dominio.dominio }}</a></td><td>{{ dominio.get_estado_display }}</td></tr>{% endfor %}</tbody>
+  </table>
+  {% else %}<p class="vacio">Sin dominios. Solicítalos desde «Dominios oficiales».</p>{% endif %}
+</div>
+
+<div class="bloque">
+  <h2>Historial</h2>
+  <p class="bloque-nota">Cada fila es la versión que había antes de un cambio. Restaurarla también queda en el historial y en la auditoría.</p>
+  {% if historial %}
+  <table>
+    <thead><tr><th scope="col">Fecha</th><th scope="col">Acción</th><th scope="col">Nombre</th><th scope="col">Tipo</th><th scope="col">Activa</th><th scope="col">Cuenta</th><th scope="col">Motivo</th><th scope="col"></th></tr></thead>
+    <tbody>
+    {% for version in historial %}
+      <tr>
+        <td>{{ version.fecha|date:"d/m/Y H:i" }}</td>
+        <td>{{ version.get_accion_display }}</td>
+        <td>{{ version.nombre }}</td>
+        <td>{{ version.get_tipo_display }}</td>
+        <td>{{ version.activa|yesno:"sí,no" }}</td>
+        <td>{{ version.usuario|default:"Sin cuenta" }}</td>
+        <td>{{ version.motivo }}</td>
+        <td>{% if puede_cambiar %}<a href="{% url 'admin:catalogo_marca_restaurar' original.pk version.pk %}">Restaurar</a>{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="vacio">Sin cambios registrados.</p>{% endif %}
+</div>
+{% endblock %}

@@ -1,9 +1,11 @@
 """Formularios de la consola de curación. La validación de fondo vive en servicios.py."""
 from django import forms
 
+from analisis.models import Analisis
 from analisis.normalizacion import LARGO_MAXIMO
 from core.auditoria import MAX_LARGO_MOTIVO
 
+from .estadisticas import MAX_DIAS, Filtros
 from .servicios import Alcance, Decision
 
 
@@ -38,3 +40,40 @@ class FormularioDecision(forms.Form):
         widget=forms.Textarea(attrs={"rows": 3}),
         help_text="Queda en la auditoría. Sin enlaces, IP ni datos personales.",
     )
+
+
+class FormularioFiltros(forms.Form):
+    """Filtros del panel de estadísticas. Todo llega por GET y se valida aquí."""
+
+    # El campo de fecha del navegador lee y escribe AAAA-MM-DD, sin importar el idioma.
+    desde = forms.DateField(
+        label="Desde", required=False,
+        widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+    )
+    hasta = forms.DateField(
+        label="Hasta", required=False,
+        widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+    )
+    tipo = forms.ChoiceField(
+        label="Tipo de entrada", required=False,
+        choices=[("", "Todos"), *Analisis.Tipo.choices],
+    )
+    dominio = forms.CharField(
+        label="Web que contiene", required=False, max_length=253,
+        widget=forms.TextInput(attrs={"spellcheck": "false", "autocomplete": "off"}),
+    )
+
+    def clean(self):
+        datos = super().clean()
+        por_defecto = Filtros.por_defecto()
+        desde = datos.get("desde") or por_defecto.desde
+        hasta = datos.get("hasta") or por_defecto.hasta
+        if desde > hasta:
+            raise forms.ValidationError("La fecha «Desde» debe ser anterior a «Hasta».")
+        if (hasta - desde).days + 1 > MAX_DIAS:
+            raise forms.ValidationError(f"El período puede tener hasta {MAX_DIAS} días.")
+        datos["filtros"] = Filtros(
+            desde=desde, hasta=hasta, tipo=datos.get("tipo") or "",
+            dominio=(datos.get("dominio") or "").strip().lower(),
+        )
+        return datos

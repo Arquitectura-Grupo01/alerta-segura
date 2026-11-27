@@ -13,6 +13,45 @@ from .models import DominioOficial, HistorialDominio, HistorialMarca, Marca
 
 
 @transaction.atomic
+def crear_marca(*, nombre, tipo, usuario, motivo):
+    """Crea una marca activa, guarda su primera versión y deja el evento de auditoría.
+
+    Sus dominios oficiales se agregan después con solicitar_dominio_oficial, que exige la
+    aprobación de un segundo administrador.
+    """
+
+    if not es_administrador(usuario):
+        raise PermissionError("Se requiere un administrador autenticado.")
+
+    if not motivo or not motivo.strip():
+        raise ValidationError("Debes indicar el motivo del cambio.")
+
+    marca = Marca(nombre=(nombre or "").strip(), tipo=tipo, activa=True)
+    marca.full_clean()
+    marca.save()
+
+    HistorialMarca.objects.create(
+        marca=marca,
+        nombre=marca.nombre,
+        tipo=marca.tipo,
+        activa=marca.activa,
+        accion=HistorialMarca.Accion.CREACION,
+        usuario=usuario,
+        motivo=motivo.strip(),
+    )
+
+    registrar_evento(
+        TipoEvento.CAMBIO_CATALOGO,
+        usuario=usuario,
+        objeto=f"catalogo.Marca:{marca.pk}",
+        motivo="Creación de marca",
+        detalle={"accion": "creacion", "marca_id": marca.pk},
+    )
+
+    return marca
+
+
+@transaction.atomic
 def actualizar_marca(*, marca_id, nombre, tipo, activa, usuario, motivo):
     """Actualiza una marca y conserva su versión anterior."""
 

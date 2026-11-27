@@ -1,0 +1,14 @@
+{% comment %}Barras horizontales de curacion/graficos.py. Espera `grafico` y el id del título en `titulo`.{% endcomment %}
+{% load l10n %}{% localize off %}
+<svg class="grafico" viewBox="0 0 {{ grafico.ancho }} {{ grafico.alto }}" role="img" aria-labelledby="{{ titulo }}">
+  {% for fila in grafico.filas %}
+  <g>
+    <title>{{ fila.texto }}: {{ fila.cantidad }}</title>
+    <text x="0" y="{{ fila.y|add:17 }}">{{ fila.texto|truncatechars:34 }}</text>
+    <rect class="barra-fondo" x="{{ grafico.x_barra }}" y="{{ fila.y|add:5 }}" width="{{ grafico.ancho_util }}" height="16"/>
+    {% if fila.ancho %}<rect class="{{ fila.clase }}" x="{{ grafico.x_barra }}" y="{{ fila.y|add:5 }}" width="{{ fila.ancho }}" height="16"/>{% endif %}
+    <text x="{{ grafico.ancho|add:-40 }}" y="{{ fila.y|add:17 }}">{{ fila.cantidad }}</text>
+  </g>
+  {% endfor %}
+</svg>
+{% endlocalize %}

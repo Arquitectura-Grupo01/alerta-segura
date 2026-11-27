@@ -10,6 +10,7 @@ from django.contrib import admin
 from django.contrib.admin.forms import AdminAuthenticationForm
 from django.contrib.auth import authenticate, get_user_model
 from django.db import transaction
+from django.urls import path
 from django_otp import devices_for_user
 from django_otp.plugins.otp_static.models import StaticDevice
 from django_otp.plugins.otp_totp.models import TOTPDevice
@@ -120,13 +121,45 @@ def _verificar_codigo(usuario, codigo):
 
 
 class ConsolaAdminSite(admin.AdminSite):
+    """La consola interna.
+
+    Las demás apps le agregan páginas propias con `agregar_vista` y tarjetas al inicio con
+    `agregar_acceso`, desde su admin.py. Así core no importa de ninguna otra app.
+    """
+
     site_header = "Consola de Alerta Segura"
     site_title = "Consola de Alerta Segura"
-    index_title = "Consola interna"
+    index_title = "Inicio"
     login_form = FormularioIngreso
     login_template = "admin/ingreso.html"
+    index_template = "admin/consola_inicio.html"
     # Los enlaces "Ver en el sitio" llevarían a la portada pública; no aportan nada aquí.
     site_url = None
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._vistas = []
+        self._accesos = []
+
+    def agregar_vista(self, ruta, vista, nombre):
+        """Agrega una página propia de la consola. Pasa por admin_view: exige sesión con
+        segundo factor; cada vista revisa además el permiso de su rol."""
+        self._vistas.append(path(ruta, self.admin_view(vista), name=nombre))
+
+    def agregar_acceso(self, acceso, orden=50):
+        """Agrega una tarjeta al inicio. `acceso(request)` devuelve un diccionario con
+        titulo, descripcion, url y cifra (None si no tiene), o None si la cuenta no lo ve.
+        Las tarjetas se ordenan por `orden`, de menor a mayor."""
+        self._accesos.append((orden, acceso))
+        self._accesos.sort(key=lambda par: par[0])
+
+    def get_urls(self):
+        # Antes que las del admin, que terminan con una ruta que atrapa todo.
+        return [*self._vistas, *super().get_urls()]
+
+    def index(self, request, extra_context=None):
+        accesos = [tarjeta for _, acceso in self._accesos if (tarjeta := acceso(request))]
+        return super().index(request, {**(extra_context or {}), "accesos": accesos})
 
     def has_permission(self, request):
         """Cuenta interna activa y con el segundo factor verificado en esta sesión."""
