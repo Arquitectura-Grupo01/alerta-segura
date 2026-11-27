@@ -1,3 +1,5 @@
+import time
+
 from django.conf import settings
 from django.http import HttpResponse
 
@@ -73,3 +75,20 @@ class LimiteDeTamanoMiddleware:
                     "La solicitud es demasiado grande.", status=413, content_type="text/plain",
                 )
         return self.get_response(request)
+
+
+class TiempoServidorMiddleware:
+    """Mide la duración de cada solicitud procesada por Django."""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        inicio = time.perf_counter()
+
+        response = self.get_response(request)
+
+        duracion_ms = (time.perf_counter() - inicio) * 1000
+        response.headers["Server-Timing"] = f"app;dur={duracion_ms:.2f}"
+
+        return response
